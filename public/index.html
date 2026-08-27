@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BroadcastDemo — Campañas Masivas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f14;
+      --surface: #161a23;
+      --surface2: #1e2433;
+      --border: #2a3045;
+      --border-light: #313a52;
+      --accent: #4f7cff;
+      --accent-hover: #6690ff;
+      --accent-dim: rgba(79,124,255,0.12);
+      --green: #22c55e;
+      --green-dim: rgba(34,197,94,0.12);
+      --red: #f43f5e;
+      --red-dim: rgba(244,63,94,0.12);
+      --yellow: #f59e0b;
+      --yellow-dim: rgba(245,158,11,0.12);
+      --text: #e8ecf4;
+      --text-muted: #7a8499;
+      --text-dim: #4a5268;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      height: 60px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text);
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .header-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .panel-icon.calls { background: var(--accent-dim); }
+    .panel-icon.whatsapp { background: var(--green-dim); }
+
+    .panel-title { font-weight: 600; font-size: 15px; }
+    .panel-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+    .panel-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+    label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px 12px;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .input-prefix {
+      display: flex;
+      align-items: stretch;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+
+    .input-prefix:focus-within { border-color: var(--accent); }
+
+    .prefix-badge {
+      background: var(--surface2);
+      border-right: 1px solid var(--border);
+      padding: 10px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-prefix input {
+      border: none;
+      border-radius: 0;
+      flex: 1;
+    }
+
+    .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+    .nums-area { position: relative; }
+
+    .nums-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn-ghost {
+      padding: 6px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .btn-ghost:hover { border-color: var(--border-light); color: var(--text); }
+
+    .csv-drop {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 13px;
+    }
+
+    .csv-drop:hover, .csv-drop.over { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .csv-drop.loaded { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+    .csv-drop input { display: none; }
+
+    .msg-field { position: relative; }
+    .msg-placeholder-hint {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 11px;
+      color: var(--accent);
+      cursor: pointer;
+      user-select: none;
+      background: var(--accent-dim);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .msg-placeholder-hint:hover { background: var(--accent); color: #fff; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary.green { background: #16a34a; }
+    .btn-primary.green:hover { background: #15803d; }
+
+    .progress-wrap { display: none; flex-direction: column; gap: 8px; }
+    .progress-wrap.visible { display: flex; }
+
+    .progress-bar-track {
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .progress-label { font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; }
+
+    .log-panel {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .log-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .log-title { font-weight: 600; font-size: 14px; }
+
+    .log-actions { display: flex; gap: 8px; }
+
+    .stats-row {
+      display: flex;
+      gap: 16px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .stat-num { font-weight: 700; font-size: 20px; }
+    .stat-num.green { color: var(--green); }
+    .stat-num.red { color: var(--red); }
+    .stat-num.yellow { color: var(--yellow); }
+    .stat-num.blue { color: var(--accent); }
+
+    .stat-label { color: var(--text-muted); font-size: 11px; }
+
+    .results-table-wrap { overflow-x: auto; max-height: 380px; overflow-y: auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+    }
+
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody tr:last-child { border-bottom: none; }
+
+    td { padding: 10px 16px; font-size: 13px; }
+
+    .td-mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge.iniciada { background: var(--accent-dim); color: var(--accent); }
+    .badge.enviado { background: var(--green-dim); color: var(--green); }
+    .badge.error { background: var(--red-dim); color: var(--red); }
+    .badge.completada { background: var(--green-dim); color: var(--green); }
+
+    .empty-log {
+      padding: 60px 24px;
+      text-align: center;
+      color: var(--text-dim);
+    }
+
+    .empty-log p { margin-top: 8px; font-size: 13px; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 780px) {
+      main { grid-template-columns: 1fr; }
+      .log-panel { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📡</div>
+    BroadcastDemo
+  </div>
+  <div class="header-status">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">Conectado</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- LLAMADAS -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-icon calls">📞</div>
+      <div>
+        <div class="panel-title">Campaña de Llamadas</div>
+        <div class="panel-subtitle">Voz masiva con TTS o audio MP3</div>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <div class="nums-area">
+        <label>Números de teléfono</label>
+        <div class="csv-drop" id="callsCsvDrop" onclick="document.getElementById('callsCsvInput').click()">
+          <input type="file" id="callsCsvInput" accept=".csv,.txt" />
+          Arrastra un CSV aquí o haz clic para subir
+          <div style="font-size:11px;margin-top:4px;">Columnas: <code>numero</code>, <code>nombre</code> (nombre es opcional)</div>
+        </div>
+        <div class="nums-actions">
+          <button class="btn-ghost" onclick="toggleTextInput('calls')">Ingresar manualmente</button>
+          <button class="btn-ghost" onclick="descargarCSVEjemplo()">Descargar CSV de ejemplo</button>
+        </div>
+        <div id="callsTextWrap" style="display:none;margin-top:10px;">
+          <textarea id="callsNums" placeholder="Un número por línea o separados por coma&#10;Puedes agregar nombre con Tab: 6141234567&#9;Juan&#10;6149876543&#9;María&#10;&#10;Sin +52, se agrega automático"></textarea>
+          <div class="hint">Sin código de país: se agrega +52 automáticamente. Con nombre: separar con Tab o dos espacios.</div>
+        </div>
+      </div>
+
+      <div>
+        <label>Tipo de audio</label>
+        <select id="callsAudioType" onchange="toggleAudioType()">
+          <option value="tts">Texto a voz (TTS automático)</option>
+          <option value="mp3">Archivo MP3 (URL pública)</option>
+        </select>
+      </div>
+
+      <div id="callsTtsWrap" class="msg-field">
+        <label>Mensaje de voz</label>
+        <span class="msg-placeholder-hint" onclick="insertarNombre('callsMsg')">+ {nombre}</span>
+        <textarea id="callsMsg" placeholder="Hola {nombre}, le informamos que su cita es mañana a las 10 AM. Gracias."></textarea>
+        <div class="hint">Usa {nombre} para personalizar por contacto. Voz: Mia (español México).</div>
+      </div>
+
+      <div id="callsMp3Wrap" style="display:none;">
+        <label>URL del archivo MP3</label>
+        <input type="text" id="callsAudioUrl" placeholder="https://tu-ngrok.ngrok-free.app/audio/mensaje.mp3" />
+        <div class="hint">Sube el MP3 a la carpeta <code>public/audio/</code> del proyecto.</div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Llamadas en paralelo</label>
+          <input type="number" id="callsConcurrency" value="5" min="1" max="50" />
+          <div class="hint">Twilio procesa ~1/seg por defecto</div>
+        </div>
+        <div>
+          <label>Listo para enviar</label>
+          <div id="callsPreview" style="padding:10px 0;font-size:13px;color:var(--text-muted);">—</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="callsProgress">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="callsProgressBar"></div>
+        </div>
+        <div class="progress-label">
+          <span id="callsProgressText">Iniciando...</span>
+          <span id="callsProgressPct">0%</span>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="callsBtn" onclick="lanzarCalls()">
+        <span>Iniciar campaña de llamadas</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- WHATSAPP -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-icon whatsapp">💬</div>
+      <div>
+        <div class="panel-title">Campaña de WhatsApp</div>
+        <div class="panel-subtitle">Mensajes masivos vía Twilio Sandbox</div>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <div class="nums-area">
+        <label>Números de teléfono</label>
+        <div class="csv-drop" id="waCsvDrop" onclick="document.getElementById('waCsvInput').click()">
+          <input type="file" id="waCsvInput" accept=".csv,.txt" />
+          Arrastra un CSV aquí o haz clic para subir
+          <div style="font-size:11px;margin-top:4px;">Columnas: <code>numero</code>, <code>nombre</code> (nombre es opcional)</div>
+        </div>
+        <div class="nums-actions">
+          <button class="btn-ghost" onclick="toggleTextInput('wa')">Ingresar manualmente</button>
+          <button class="btn-ghost" onclick="descargarCSVEjemplo()">Descargar CSV de ejemplo</button>
+        </div>
+        <div id="waTextWrap" style="display:none;margin-top:10px;">
+          <textarea id="waNums" placeholder="Un número por línea o separados por coma&#10;6141234567&#9;Juan&#10;6149876543&#10;&#10;Sin +52, se agrega automático"></textarea>
+          <div class="hint">Sin código de país: se agrega +52 automáticamente.</div>
+        </div>
+      </div>
+
+      <div class="msg-field">
+        <label>Mensaje de WhatsApp</label>
+        <span class="msg-placeholder-hint" onclick="insertarNombre('waMsg')">+ {nombre}</span>
+        <textarea id="waMsg" placeholder="Hola {nombre}, le recordamos su cita programada para mañana. Para confirmar responda SI."></textarea>
+        <div class="hint">Usa {nombre} para personalizar. Sandbox: el destinatario debió enviar primero un mensaje al número de Twilio.</div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Mensajes en paralelo</label>
+          <input type="number" id="waConcurrency" value="10" min="1" max="50" />
+        </div>
+        <div>
+          <label>Listo para enviar</label>
+          <div id="waPreview" style="padding:10px 0;font-size:13px;color:var(--text-muted);">—</div>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="waProgress">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="waProgressBar"></div>
+        </div>
+        <div class="progress-label">
+          <span id="waProgressText">Iniciando...</span>
+          <span id="waProgressPct">0%</span>
+        </div>
+      </div>
+
+      <button class="btn-primary green" id="waBtn" onclick="lanzarWA()">
+        <span>Iniciar campaña de WhatsApp</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-panel">
+    <div class="log-header">
+      <div class="log-title">Resultados de campañas</div>
+      <div class="log-actions">
+        <button class="btn-ghost" onclick="exportarCSV()">Exportar CSV</button>
+        <button class="btn-ghost" onclick="limpiarLog()">Limpiar</button>
+      </div>
+    </div>
+    <div class="stats-row" id="statsRow" style="display:none;">
+      <div class="stat">
+        <div>
+          <div class="stat-num blue" id="statTotal">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+      </div>
+      <div class="stat">
+        <div>
+          <div class="stat-num green" id="statOk">0</div>
+          <div class="stat-label">Exitosos</div>
+        </div>
+      </div>
+      <div class="stat">
+        <div>
+          <div class="stat-num red" id="statErr">0</div>
+          <div class="stat-label">Errores</div>
+        </div>
+      </div>
+      <div class="stat" style="margin-left:auto;">
+        <div>
+          <div class="stat-num yellow" id="statCampaign" style="font-size:13px;"></div>
+          <div class="stat-label">Campaña activa</div>
+        </div>
+      </div>
+    </div>
+    <div id="emptyLog" class="empty-log">
+      <div style="font-size:48px;">📋</div>
+      <p>Los resultados aparecerán aquí cuando inicies una campaña</p>
+    </div>
+    <div class="results-table-wrap" id="tableWrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Número</th>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th>SID Twilio</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let allResults = [];
+  let pollInterval = null;
+  let csvCallsData = null;
+  let csvWaData = null;
+
+  async function fetchConfig() {
+    try {
+      const r = await fetch('/api/config');
+      const cfg = await r.json();
+      document.title = `BroadcastDemo — ${cfg.fromNumber || ''}`;
+    } catch {}
+  }
+
+  fetchConfig();
+
+  function toggleAudioType() {
+    const v = document.getElementById('callsAudioType').value;
+    document.getElementById('callsTtsWrap').style.display = v === 'tts' ? '' : 'none';
+    document.getElementById('callsMp3Wrap').style.display = v === 'mp3' ? '' : 'none';
+  }
+
+  function toggleTextInput(tipo) {
+    const wrap = document.getElementById(`${tipo}TextWrap`);
+    wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
+    actualizarPreview(tipo);
+  }
+
+  function insertarNombre(fieldId) {
+    const el = document.getElementById(fieldId);
+    const pos = el.selectionStart;
+    const val = el.value;
+    el.value = val.slice(0, pos) + '{nombre}' + val.slice(pos);
+    el.focus();
+    el.setSelectionRange(pos + 8, pos + 8);
+  }
+
+  function actualizarPreview(tipo) {
+    const preview = document.getElementById(`${tipo}Preview`);
+    const csvData = tipo === 'calls' ? csvCallsData : csvWaData;
+    if (csvData) {
+      preview.textContent = `${csvData.length} contactos cargados del CSV`;
+      preview.style.color = 'var(--green)';
+      return;
+    }
+    const textarea = document.getElementById(tipo === 'calls' ? 'callsNums' : 'waNums');
+    const nums = textarea ? textarea.value.trim().split(/[\n,;]+/).filter(l => l.trim()) : [];
+    if (nums.length > 0) {
+      preview.textContent = `${nums.length} número${nums.length > 1 ? 's' : ''} ingresado${nums.length > 1 ? 's' : ''}`;
+      preview.style.color = 'var(--text-muted)';
+    } else {
+      preview.textContent = '—';
+      preview.style.color = 'var(--text-dim)';
+    }
+  }
+
+  document.getElementById('callsNums').addEventListener('input', () => actualizarPreview('calls'));
+  document.getElementById('waNums').addEventListener('input', () => actualizarPreview('wa'));
+
+  function setupCsvDrop(dropId, inputId, tipo) {
+    const drop = document.getElementById(dropId);
+    const input = document.getElementById(inputId);
+
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+    drop.addEventListener('drop', e => {
+      e.preventDefault();
+      drop.classList.remove('over');
+      const file = e.dataTransfer.files[0];
+      if (file) processCsv(file, tipo, drop);
+    });
+
+    input.addEventListener('change', () => {
+      if (input.files[0]) processCsv(input.files[0], tipo, drop);
+    });
+  }
+
+  function processCsv(file, tipo, dropEl) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target.result;
+      const lines = text.trim().split('\n').filter(l => l.trim());
+      const count = Math.max(0, lines.length - 1);
+      if (tipo === 'calls') csvCallsData = file;
+      else csvWaData = file;
+      dropEl.classList.add('loaded');
+      dropEl.innerHTML = `Archivo cargado: <strong>${file.name}</strong> (${count} contactos)`;
+      actualizarPreview(tipo);
+    };
+    reader.readAsText(file);
+  }
+
+  setupCsvDrop('callsCsvDrop', 'callsCsvInput', 'calls');
+  setupCsvDrop('waCsvDrop', 'waCsvInput', 'wa');
+
+  function descargarCSVEjemplo() {
+    const contenido = `numero,nombre\n6141234567,Juan Pérez\n6149876543,María López\n6141112233,Carlos Hernández`;
+    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'contactos_ejemplo.csv';
+    a.click();
+  }
+
+  async function lanzarCalls() {
+    const audioType = document.getElementById('callsAudioType').value;
+    const mensaje = document.getElementById('callsMsg').value.trim();
+    const audioUrl = document.getElementById('callsAudioUrl').value.trim();
+    const concurrencia = document.getElementById('callsConcurrency').value;
+    const numerosText = document.getElementById('callsNums').value.trim();
+
+    if (!csvCallsData && !numerosText) return alert('Ingresa números o sube un CSV');
+    if (audioType === 'tts' && !mensaje) return alert('Escribe el mensaje de voz');
+    if (audioType === 'mp3' && !audioUrl) return alert('Ingresa la URL del MP3');
+
+    const formData = new FormData();
+    if (csvCallsData) formData.append('csv', csvCallsData);
+    else formData.append('numeros', numerosText);
+    if (audioType === 'tts') formData.append('mensaje', mensaje);
+    else formData.append('audioUrl', audioUrl);
+    formData.append('concurrencia', concurrencia);
+
+    document.getElementById('callsBtn').disabled = true;
+    document.getElementById('callsBtn').textContent = 'Enviando...';
+    document.getElementById('callsProgress').classList.add('visible');
+
+    try {
+      const r = await fetch('/api/calls/bulk', { method: 'POST', body: formData });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Error desconocido');
+      iniciarPolling(data.campaignId, 'calls');
+    } catch (err) {
+      alert('Error: ' + err.message);
+      resetBtn('calls');
+    }
+  }
+
+  async function lanzarWA() {
+    const mensaje = document.getElementById('waMsg').value.trim();
+    const concurrencia = document.getElementById('waConcurrency').value;
+    const numerosText = document.getElementById('waNums').value.trim();
+
+    if (!csvWaData && !numerosText) return alert('Ingresa números o sube un CSV');
+    if (!mensaje) return alert('Escribe el mensaje de WhatsApp');
+
+    const formData = new FormData();
+    if (csvWaData) formData.append('csv', csvWaData);
+    else formData.append('numeros', numerosText);
+    formData.append('mensaje', mensaje);
+    formData.append('concurrencia', concurrencia);
+
+    document.getElementById('waBtn').disabled = true;
+    document.getElementById('waBtn').textContent = 'Enviando...';
+    document.getElementById('waProgress').classList.add('visible');
+
+    try {
+      const r = await fetch('/api/whatsapp/bulk', { method: 'POST', body: formData });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Error desconocido');
+      iniciarPolling(data.campaignId, 'wa');
+    } catch (err) {
+      alert('Error: ' + err.message);
+      resetBtn('wa');
+    }
+  }
+
+  function iniciarPolling(campaignId, tipo) {
+    if (pollInterval) clearInterval(pollInterval);
+
+    document.getElementById('emptyLog').style.display = 'none';
+    document.getElementById('tableWrap').style.display = '';
+    document.getElementById('statsRow').style.display = '';
+    document.getElementById('statCampaign').textContent = tipo === 'calls' ? 'Llamadas' : 'WhatsApp';
+
+    pollInterval = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/campaigns/${campaignId}`);
+        const data = await r.json();
+
+        const pct = data.progreso || 0;
+        document.getElementById(`${tipo}ProgressBar`).style.width = pct + '%';
+        document.getElementById(`${tipo}ProgressPct`).textContent = pct + '%';
+        document.getElementById(`${tipo}ProgressText`).textContent =
+          data.estado === 'completada' ? 'Completada' : `Procesando ${data.resultados?.length || 0} de ${data.total}...`;
+
+        renderResultados(data.resultados || []);
+
+        if (data.estado === 'completada') {
+          clearInterval(pollInterval);
+          resetBtn(tipo);
+        }
+      } catch {}
+    }, 1200);
+  }
+
+  function renderResultados(resultados) {
+    allResults = resultados;
+    const tbody = document.getElementById('resultsBody');
+    const ok = resultados.filter(r => r.estado !== 'error').length;
+    const err = resultados.filter(r => r.estado === 'error').length;
+
+    document.getElementById('statTotal').textContent = resultados.length;
+    document.getElementById('statOk').textContent = ok;
+    document.getElementById('statErr').textContent = err;
+
+    tbody.innerHTML = resultados.map((r, i) => `
+      <tr>
+        <td style="color:var(--text-dim)">${i + 1}</td>
+        <td class="td-mono">${r.numero}</td>
+        <td>${r.nombre || '<span style="color:var(--text-dim)">—</span>'}</td>
+        <td><span class="badge ${r.estado}">${r.estado}</span></td>
+        <td class="td-mono">${r.sid || (r.error ? `<span style="color:var(--red);font-size:11px;">${r.error.slice(0,60)}</span>` : '—')}</td>
+      </tr>
+    `).join('');
+  }
+
+  function resetBtn(tipo) {
+    const btn = document.getElementById(`${tipo}Btn`);
+    btn.disabled = false;
+    btn.textContent = tipo === 'calls' ? 'Iniciar campaña de llamadas' : 'Iniciar campaña de WhatsApp';
+  }
+
+  function limpiarLog() {
+    allResults = [];
+    document.getElementById('resultsBody').innerHTML = '';
+    document.getElementById('emptyLog').style.display = '';
+    document.getElementById('tableWrap').style.display = 'none';
+    document.getElementById('statsRow').style.display = 'none';
+  }
+
+  function exportarCSV() {
+    if (!allResults.length) return alert('No hay resultados para exportar');
+    const header = 'numero,nombre,estado,sid,error';
+    const rows = allResults.map(r =>
+      `${r.numero},${r.nombre || ''},${r.estado},${r.sid || ''},${r.error || ''}`
+    );
+    const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `resultados_${Date.now()}.csv`;
+    a.click();
+  }
+</script>
+</body>
+</html>
