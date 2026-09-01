@@ -219,6 +219,7 @@ app.post("/api/webhooks/message-status", express.urlencoded({ extended: false })
 });
 
 app.get("/audio/:archivo", (req, res) => {
+  res.setHeader("ngrok-skip-browser-warning", "true");
   const filePath = path.join(__dirname, "public", "audio", req.params.archivo);
   if (fs.existsSync(filePath)) {
     res.sendFile(filePath);
