@@ -362,6 +362,52 @@ app.get("/api/campaigns/:id", (req, res) => {
   res.json(campaign);
 });
 
+const RANGO_LLAMADA = {
+  "queued": 1,
+  "initiated": 1,
+  "ringing": 2,
+  "answered": 3,
+  "in-progress": 3,
+  "completed": 4,
+  "busy": 4,
+  "no-answer": 4,
+  "canceled": 4,
+  "failed": 4,
+};
+
+function aplicarEstadoLlamada(resultado, estadoTwilio, duracionTexto) {
+  const rango = RANGO_LLAMADA[estadoTwilio] || 1;
+  const rangoActual = resultado.rangoLlamada || 0;
+  if (rango < rangoActual) return false;
+
+  const duracion = duracionTexto !== undefined && duracionTexto !== null && duracionTexto !== "" ? parseInt(duracionTexto) || 0 : (resultado.duracion || 0);
+  const estadosMapa = {
+    "queued": "iniciada",
+    "initiated": "iniciada",
+    "ringing": "timbrando",
+    "answered": "contestada",
+    "in-progress": "contestada",
+    "completed": duracion > 0 ? "completada" : "no contestada",
+    "busy": "ocupado",
+    "no-answer": "no contestó",
+    "canceled": "cancelada",
+    "failed": "fallida",
+  };
+
+  resultado.rangoLlamada = rango;
+  resultado.estadoLlamada = estadoTwilio;
+  resultado.duracion = Math.max(duracion, resultado.duracion || 0);
+  resultado.ultimoUpdate = Date.now();
+  resultado.estado = estadosMapa[estadoTwilio] || estadoTwilio;
+
+  if (estadoTwilio === "in-progress" || estadoTwilio === "answered" || (estadoTwilio === "completed" && duracion > 0)) {
+    resultado.respondio = true;
+  } else if (resultado.respondio !== true && rango === 4) {
+    resultado.respondio = false;
+  }
+  return true;
+}
+
 app.post("/api/webhooks/call-status", express.urlencoded({ extended: false }), (req, res) => {
   const { CallSid, CallStatus, Duration } = req.body;
   console.log(`Webhook llamada: ${CallSid} → ${CallStatus} (${Duration || 0}s)`);
@@ -371,36 +417,47 @@ app.post("/api/webhooks/call-status", express.urlencoded({ extended: false }), (
     const campaign = campaigns.get(campaignId);
     if (campaign) {
       const resultado = campaign.resultados.find(r => r.sid === CallSid);
-      if (resultado) {
-        resultado.estadoLlamada = CallStatus;
-        resultado.duracion = Duration ? parseInt(Duration) : 0;
-        resultado.ultimoUpdate = Date.now();
-
-        const estadosMapa = {
-          "initiated": "iniciada",
-          "ringing": "timbrando",
-          "answered": "contestada",
-          "in-progress": "contestada",
-          "completed": parseInt(Duration) > 0 ? "completada" : "no contestada",
-          "busy": "ocupado",
-          "no-answer": "no contestó",
-          "canceled": "cancelada",
-          "failed": "fallida",
-        };
-        resultado.estado = estadosMapa[CallStatus] || CallStatus;
-
-        const duracion = resultado.duracion || 0;
-        if (CallStatus === "in-progress" || CallStatus === "answered" || (CallStatus === "completed" && duracion > 0)) {
-          resultado.respondio = true;
-        } else if (resultado.respondio !== true && ["no-answer", "busy", "failed", "canceled", "completed"].includes(CallStatus)) {
-          resultado.respondio = false;
-        }
-      }
+      if (resultado) aplicarEstadoLlamada(resultado, CallStatus, Duration);
     }
   }
 
   res.sendStatus(200);
 });
+
+let conciliando = false;
+
+async function conciliarLlamadas() {
+  if (conciliando) return;
+  conciliando = true;
+  try {
+    const limite = Date.now() - 45000;
+    const pendientes = [];
+    for (const campaign of campaigns.values()) {
+      if (campaign.tipo !== "llamadas") continue;
+      for (const r of campaign.resultados) {
+        if (r.sid && (r.rangoLlamada || 0) < 4 && (r.ultimoUpdate || r.ts) < limite) pendientes.push(r);
+        if (pendientes.length >= 60) break;
+      }
+      if (pendientes.length >= 60) break;
+    }
+
+    for (let i = 0; i < pendientes.length; i += 10) {
+      await Promise.all(pendientes.slice(i, i + 10).map(async (r) => {
+        try {
+          const llamada = await client.calls(r.sid).fetch();
+          aplicarEstadoLlamada(r, llamada.status, llamada.duration);
+          r.ultimoUpdate = Date.now();
+        } catch (err) {
+          r.ultimoUpdate = Date.now();
+        }
+      }));
+    }
+  } finally {
+    conciliando = false;
+  }
+}
+
+setInterval(() => { conciliarLlamadas().catch(console.error); }, 20000);
 
 app.post("/api/webhooks/message-status", express.urlencoded({ extended: false }), (req, res) => {
   console.log("Estado mensaje:", req.body.MessageSid, req.body.MessageStatus);
