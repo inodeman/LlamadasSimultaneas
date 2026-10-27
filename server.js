@@ -380,13 +380,21 @@ app.post("/api/webhooks/call-status", express.urlencoded({ extended: false }), (
           "initiated": "iniciada",
           "ringing": "timbrando",
           "answered": "contestada",
-          "completed": CallStatus === "completed" && parseInt(Duration) > 0 ? "completada" : "no contestada",
+          "in-progress": "contestada",
+          "completed": parseInt(Duration) > 0 ? "completada" : "no contestada",
           "busy": "ocupado",
           "no-answer": "no contestó",
           "canceled": "cancelada",
           "failed": "fallida",
         };
         resultado.estado = estadosMapa[CallStatus] || CallStatus;
+
+        const duracion = resultado.duracion || 0;
+        if (CallStatus === "in-progress" || CallStatus === "answered" || (CallStatus === "completed" && duracion > 0)) {
+          resultado.respondio = true;
+        } else if (resultado.respondio !== true && ["no-answer", "busy", "failed", "canceled", "completed"].includes(CallStatus)) {
+          resultado.respondio = false;
+        }
       }
     }
   }

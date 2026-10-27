@@ -386,9 +386,19 @@ Sin +52, se agrega automático"></textarea>
 
         <div class="stats-grid" id="statsGrid" style="display:none;">
           <div class="stat-box"><div class="stat-num blue" id="statTotal">0</div><div class="stat-label">Total</div></div>
-          <div class="stat-box"><div class="stat-num green" id="statContestadas">0</div><div class="stat-label">Contestadas</div></div>
-          <div class="stat-box"><div class="stat-num yellow" id="statNoContesto">0</div><div class="stat-label">No contestó</div></div>
+          <div class="stat-box"><div class="stat-num green" id="statContestadas">0</div><div class="stat-label">Respondieron</div></div>
+          <div class="stat-box"><div class="stat-num yellow" id="statNoContesto">0</div><div class="stat-label">No respondieron</div></div>
           <div class="stat-box"><div class="stat-num red" id="statError">0</div><div class="stat-label">Error / Fallida</div></div>
+        </div>
+
+        <div class="chips-row" id="filtrosBar" style="display:none;padding:12px 20px 0;">
+          <div class="chip active" id="filtro-todos" onclick="filtrar('todos')">Todos</div>
+          <div class="chip" id="filtro-si" onclick="filtrar('si')">Respondieron</div>
+          <div class="chip" id="filtro-no" onclick="filtrar('no')">No respondieron</div>
+          <div class="chip" id="filtro-pendiente" onclick="filtrar('pendiente')">En curso</div>
+          <div class="chip" id="filtro-error" onclick="filtrar('error')">Con error</div>
+          <button class="btn-text" style="margin-left:auto;font-size:12px;" onclick="exportarCSV('si')">Descargar quienes respondieron</button>
+          <button class="btn-text" style="font-size:12px;" onclick="exportarCSV('no')">Descargar quienes no</button>
         </div>
 
         <div class="call-status-legend" id="legendBar" style="display:none;">
@@ -433,6 +443,29 @@ Sin +52, se agrega automático"></textarea>
   let voces = [];
   let vocesSeleccionadas = [];
   let vozSonando = null;
+  let filtroActivo = 'todos';
+  const MAX_FILAS = 400;
+
+  function categoria(r) {
+    if (r.estado === 'error' || r.estado === 'fallida') return 'error';
+    if (r.respondio === true) return 'si';
+    if (r.respondio === false) return 'no';
+    return 'pendiente';
+  }
+
+  function textoRespuesta(r) {
+    const c = categoria(r);
+    if (c === 'si') return 'Sí';
+    if (c === 'no') return 'No';
+    if (c === 'error') return 'Error';
+    return 'En curso';
+  }
+
+  function filtrar(valor) {
+    filtroActivo = valor;
+    ['todos', 'si', 'no', 'pendiente', 'error'].forEach(f => document.getElementById('filtro-' + f).classList.toggle('active', f === valor));
+    renderResultados(allResults);
+  }
 
   function esc(valor) {
     return String(valor === undefined || valor === null ? '' : valor)
@@ -752,7 +785,7 @@ Sin +52, se agrega automático"></textarea>
           verificarTwilio();
         }
       } catch {}
-    }, 1500);
+    }, 3000);
   }
 
   function badgeClass(estado) {
@@ -799,9 +832,9 @@ Sin +52, se agrega automático"></textarea>
 
   function renderResultados(resultados) {
     allResults = resultados;
-    const contestadas = resultados.filter(r => ['completada','contestada'].includes(r.estado)).length;
-    const noContesto = resultados.filter(r => ['no contestó','ocupado','cancelada'].includes(r.estado)).length;
-    const errores = resultados.filter(r => ['error','fallida'].includes(r.estado)).length;
+    const contestadas = resultados.filter(r => categoria(r) === 'si').length;
+    const noContesto = resultados.filter(r => categoria(r) === 'no').length;
+    const errores = resultados.filter(r => categoria(r) === 'error').length;
 
     document.getElementById('statTotal').textContent = resultados.length;
     document.getElementById('statContestadas').textContent = contestadas;
@@ -811,9 +844,16 @@ Sin +52, se agrega automático"></textarea>
     const hayDatos = resultados.length > 0;
     document.getElementById('statsGrid').style.display = hayDatos ? '' : 'none';
     document.getElementById('legendBar').style.display = hayDatos ? '' : 'none';
+    document.getElementById('filtrosBar').style.display = hayDatos ? 'flex' : 'none';
     document.getElementById('emptyState').style.display = hayDatos ? 'none' : '';
 
-    document.getElementById('resultsList').innerHTML = resultados.map(r => `
+    const visibles = resultados.filter(r => filtroActivo === 'todos' || categoria(r) === filtroActivo);
+    const mostrados = visibles.slice(0, MAX_FILAS);
+    const aviso = visibles.length > MAX_FILAS
+      ? '<div class="voz-estado">Se muestran ' + MAX_FILAS + ' de ' + visibles.length + '. Usa los botones de descarga para ver la lista completa.</div>'
+      : '';
+
+    document.getElementById('resultsList').innerHTML = aviso + mostrados.map(r => `
       <div class="result-item">
         <div class="result-avatar" style="background:${avatarBg(r.estado)}">${avatarEmoji(r.estado)}</div>
         <div class="result-info">
@@ -822,7 +862,7 @@ Sin +52, se agrega automático"></textarea>
           ${r.voz ? '<div class="result-name">Voz: ' + esc(r.voz) + '</div>' : ''}
           <div class="result-meta">${esc(r.sid || r.error || '')}</div>
         </div>
-        <div class="call-badge ${badgeClass(r.estado)}">${esc(r.estado)}</div>
+        <div class="call-badge ${badgeClass(r.estado)}">${esc(r.estado)}${categoria(r) === 'pendiente' ? '' : ' · ' + textoRespuesta(r)}</div>
       </div>
     `).join('');
 
@@ -835,17 +875,18 @@ Sin +52, se agrega automático"></textarea>
     document.getElementById('fabExport').classList.remove('visible');
   }
 
-  function exportarCSV() {
-    if (!allResults.length) return;
-    const header = 'numero,nombre,voz,estado,estadoLlamada,duracion,sid,error';
+  function exportarCSV(solo) {
+    const lista = solo ? allResults.filter(r => categoria(r) === solo) : allResults;
+    if (!lista.length) return snack('No hay registros para descargar');
+    const header = 'numero,nombre,voz,respondio,estado,estadoLlamada,duracion,sid,error';
     const celda = v => '"' + String(v === undefined || v === null ? '' : v).replace(/"/g, '""') + '"';
-    const rows = allResults.map(r =>
-      [r.numero, r.nombre, r.voz, r.estado, r.estadoLlamada, r.duracion || 0, r.sid, r.error].map(celda).join(',')
+    const rows = lista.map(r =>
+      [r.numero, r.nombre, r.voz, textoRespuesta(r), r.estado, r.estadoLlamada, r.duracion || 0, r.sid, r.error].map(celda).join(',')
     );
     const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'resultados_' + Date.now() + '.csv';
+    a.download = (solo === 'si' ? 'respondieron_' : solo === 'no' ? 'no_respondieron_' : 'resultados_') + Date.now() + '.csv';
     a.click();
   }
 
