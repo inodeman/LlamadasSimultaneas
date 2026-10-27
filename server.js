@@ -140,6 +140,21 @@ async function prepararAudiosDeVoces(contactos, mensajeTemplate, voces, campaign
   return generacion;
 }
 
+const esperaFinLlamadaMs = process.env.ESPERA_FIN_LLAMADA_MS !== undefined ? parseInt(process.env.ESPERA_FIN_LLAMADA_MS) || 0 : 300000;
+
+function esperar(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function esperarFinDeLlamada(resultado, campaign) {
+  const limite = Date.now() + esperaFinLlamadaMs;
+  while (Date.now() < limite) {
+    if ((resultado.rangoLlamada || 0) >= 4) return;
+    if (campaign && campaign.detener) return;
+    await esperar(1000);
+  }
+}
+
 async function ejecutarCampana(contactos, mensajeTemplate, audioUrl, concurrencia, campaignId, tipo, voces = []) {
   const campaign = campaigns.get(campaignId);
   const resultados = [];
@@ -159,67 +174,83 @@ async function ejecutarCampana(contactos, mensajeTemplate, audioUrl, concurrenci
     }
   }
 
-  for (let i = 0; i < contactos.length; i += concurrencia) {
-    const lote = contactos.slice(i, i + concurrencia);
-    const promesas = lote.map(async (contacto) => {
-      const { numero, nombre } = contacto;
-      const extra = contacto.voz ? { voz: contacto.voz } : {};
-      const mensaje = construirMensaje(mensajeTemplate, nombre);
-      try {
-        let res;
-        if (tipo === "llamadas") {
-          let twiml;
-          if (audios) {
-            const audio = audios.get(contacto.claveAudio);
-            if (!audio || !audio.ok) {
-              const fallo = { numero, nombre, ...extra, sid: null, estado: "error", estadoLlamada: "error", error: audio ? audio.error : "El mensaje está vacío.", ts: Date.now() };
-              if (campaign) campaign.resultados.push(fallo);
-              return fallo;
-            }
-            twiml = `<Response><Play>${escaparXml(audio.url)}</Play></Response>`;
-          } else if (audioUrl) {
-            twiml = `<Response><Play>${escaparXml(audioUrl)}</Play></Response>`;
-          } else {
-            twiml = `<Response><Say language="es-MX" voice="Polly.Mia">${escaparXml(mensaje)}</Say></Response>`;
+  async function procesarContacto(contacto) {
+    const { numero, nombre } = contacto;
+    const extra = contacto.voz ? { voz: contacto.voz } : {};
+    const mensaje = construirMensaje(mensajeTemplate, nombre);
+    try {
+      let res;
+      if (tipo === "llamadas") {
+        let twiml;
+        if (audios) {
+          const audio = audios.get(contacto.claveAudio);
+          if (!audio || !audio.ok) {
+            const fallo = { numero, nombre, ...extra, sid: null, estado: "error", estadoLlamada: "error", error: audio ? audio.error : "El mensaje está vacío.", ts: Date.now() };
+            if (campaign) campaign.resultados.push(fallo);
+            return fallo;
           }
-          const call = await client.calls.create({
-            to: numero,
-            from: fromNumber,
-            twiml,
-            statusCallback: `${publicBaseUrl}/api/webhooks/call-status`,
-            statusCallbackMethod: "POST",
-            statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-          });
-          res = { numero, nombre, ...extra, sid: call.sid, estado: "iniciada", estadoLlamada: "initiated", error: null, ts: Date.now() };
-          sidToCampaign.set(call.sid, campaignId);
+          twiml = `<Response><Play>${escaparXml(audio.url)}</Play></Response>`;
+        } else if (audioUrl) {
+          twiml = `<Response><Play>${escaparXml(audioUrl)}</Play></Response>`;
         } else {
-          const msg = await client.messages.create({
-            from: whatsappFrom,
-            to: `whatsapp:${numero}`,
-            body: mensaje,
-            statusCallback: `${publicBaseUrl}/api/webhooks/message-status`,
-          });
-          res = { numero, nombre, sid: msg.sid, estado: "enviado", estadoLlamada: null, error: null, ts: Date.now() };
+          twiml = `<Response><Say language="es-MX" voice="Polly.Mia">${escaparXml(mensaje)}</Say></Response>`;
         }
-        if (campaign) campaign.resultados.push(res);
-        return res;
-      } catch (err) {
-        if (esErrorFatalDeTwilio(err)) detenerCampana(campaign, err);
-        const res = { numero, nombre, ...extra, sid: null, estado: "error", estadoLlamada: "error", error: err.message, ts: Date.now() };
-        if (campaign) campaign.resultados.push(res);
-        return res;
+        const call = await client.calls.create({
+          to: numero,
+          from: fromNumber,
+          twiml,
+          statusCallback: `${publicBaseUrl}/api/webhooks/call-status`,
+          statusCallbackMethod: "POST",
+          statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
+        });
+        res = { numero, nombre, ...extra, sid: call.sid, estado: "iniciada", estadoLlamada: "initiated", error: null, ts: Date.now() };
+        sidToCampaign.set(call.sid, campaignId);
+      } else {
+        const msg = await client.messages.create({
+          from: whatsappFrom,
+          to: `whatsapp:${numero}`,
+          body: mensaje,
+          statusCallback: `${publicBaseUrl}/api/webhooks/message-status`,
+        });
+        res = { numero, nombre, sid: msg.sid, estado: "enviado", estadoLlamada: null, error: null, ts: Date.now() };
       }
-    });
-
-    resultados.push(...await Promise.all(promesas));
-    if (campaign) campaign.progreso = Math.min(100, Math.round((resultados.length / contactos.length) * 100));
-    if (campaign && campaign.estado === "detenida") {
-      campaign.omitidos = contactos.length - resultados.length;
-      break;
+      if (campaign) campaign.resultados.push(res);
+      return res;
+    } catch (err) {
+      if (esErrorFatalDeTwilio(err)) detenerCampana(campaign, err);
+      const res = { numero, nombre, ...extra, sid: null, estado: "error", estadoLlamada: "error", error: err.message, ts: Date.now() };
+      if (campaign) campaign.resultados.push(res);
+      return res;
     }
   }
 
-  if (campaign && campaign.estado !== "detenida") campaign.estado = "completada";
+  const limite = Math.max(1, parseInt(concurrencia) || 1);
+  let siguiente = 0;
+  let terminados = 0;
+
+  async function trabajador() {
+    while (true) {
+      if (campaign && (campaign.estado === "detenida" || campaign.detener)) return;
+      const indice = siguiente;
+      siguiente += 1;
+      if (indice >= contactos.length) return;
+
+      const res = await procesarContacto(contactos[indice]);
+      resultados.push(res);
+      if (tipo === "llamadas" && res.sid) await esperarFinDeLlamada(res, campaign);
+
+      terminados += 1;
+      if (campaign) campaign.progreso = Math.min(100, Math.round((terminados / contactos.length) * 100));
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limite, contactos.length) }, trabajador));
+
+  if (campaign && campaign.estado === "detenida") {
+    campaign.omitidos = contactos.length - resultados.length;
+  } else if (campaign) {
+    campaign.estado = "completada";
+  }
   return resultados;
 }
 
@@ -297,8 +328,42 @@ app.get("/api/twilio/status", async (req, res) => {
   res.json(await verificarCuentaTwilio());
 });
 
+function campanaDeLlamadasActiva() {
+  for (const c of campaigns.values()) {
+    if (c.tipo === "llamadas" && (c.estado === "en_progreso" || c.estado === "generando_audios")) return c;
+  }
+  return null;
+}
+
+app.post("/api/campaigns/:id/detener", async (req, res) => {
+  const campaign = campaigns.get(req.params.id);
+  if (!campaign) return res.status(404).json({ error: "Campaña no encontrada" });
+  if (campaign.estado === "completada" || campaign.estado === "detenida") return res.json({ ok: true, estado: campaign.estado });
+
+  campaign.detener = true;
+  campaign.manual = true;
+  campaign.estado = "detenida";
+  campaign.error = "Campaña detenida. Los contactos restantes no se llamaron.";
+
+  const cancelables = campaign.resultados.filter((r) => r.sid && (r.rangoLlamada || 0) < 3);
+  await Promise.all(cancelables.map(async (r) => {
+    try {
+      await client.calls(r.sid).update({ status: "canceled" });
+    } catch (err) {
+      console.error(`No se pudo cancelar ${r.sid}: ${err.message}`);
+    }
+  }));
+
+  campaign.omitidos = Math.max(0, campaign.total - campaign.resultados.length);
+  console.log(`Campaña ${campaign.id} detenida manualmente`);
+  res.json({ ok: true, estado: campaign.estado, canceladas: cancelables.length });
+});
+
 app.post("/api/calls/bulk", upload.single("csv"), async (req, res) => {
   try {
+    const activa = campanaDeLlamadasActiva();
+    if (activa) return res.status(409).json({ error: "Ya hay una campaña de llamadas en curso. Espera a que termine o detenla antes de iniciar otra." });
+
     const { numeros, mensaje, audioUrl, concurrencia = 5, voces } = req.body;
     const csvBuffer = req.file ? req.file.buffer : null;
     const listaVoces = parsearVoces(voces);

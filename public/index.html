@@ -305,7 +305,7 @@ Sin +52, se agrega automático"></textarea>
           <div style="flex:1;">
             <span class="field-label">Llamadas en paralelo</span>
             <input class="md-input" type="number" id="callsConcurrency" value="5" min="1" max="50">
-            <div class="supporting-text">Twilio: ~1/seg</div>
+            <div class="supporting-text">Llamadas activas al mismo tiempo. Cada una termina antes de pasar a la siguiente.</div>
           </div>
           <div style="flex:1;">
             <span class="field-label">Contactos</span>
@@ -321,6 +321,7 @@ Sin +52, se agrega automático"></textarea>
         </div>
         <div class="progress-track"><div class="progress-fill" id="callsBar"></div></div>
         <div class="progress-meta"><span id="callsProgressText">0 enviados</span><span id="callsProgressPct">0%</span></div>
+        <button class="btn-text" id="btnDetener" onclick="detenerCampana()" style="margin-top:8px;color:var(--md-error);">Detener campaña</button>
       </div>
 
       <button class="btn-filled" id="callsBtn" onclick="lanzarCalls()">📞 Iniciar campaña de llamadas</button>
@@ -690,6 +691,8 @@ Sin +52, se agrega automático"></textarea>
     if (audioType === 'mp3' && !mp3Url) return snack('Ingresa la URL del MP3');
     if (audioType === 'tts' && !ttsTexto) return snack('Escribe el mensaje de voz');
 
+    if (!confirm('Se iniciarán llamadas reales a los contactos cargados. ¿Continuar?')) return;
+
     const formData = new FormData();
     if (csvCallsFile) formData.append('csv', csvCallsFile);
     else formData.append('numeros', numerosText);
@@ -747,6 +750,19 @@ Sin +52, se agrega automático"></textarea>
     }
   }
 
+  async function detenerCampana() {
+    if (!campaignActiva) return snack('No hay campaña en curso');
+    if (!confirm('Se detendrá la campaña y se cancelarán las llamadas que aún no contestaron. ¿Continuar?')) return;
+    try {
+      const r = await fetch('/api/campaigns/' + campaignActiva + '/detener', { method: 'POST' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'No se pudo detener');
+      snack('Campaña detenida');
+    } catch (err) {
+      snack('Error: ' + err.message);
+    }
+  }
+
   function setLoading(tipo, loading) {
     const btn = document.getElementById(tipo === 'calls' ? 'callsBtn' : 'waBtn');
     btn.disabled = loading;
@@ -780,9 +796,9 @@ Sin +52, se agrega automático"></textarea>
           setLoading(tipo === 'calls' ? 'calls' : 'wa', false);
           document.getElementById('liveTag').style.display = 'none';
           document.getElementById(txtId).textContent = (data.resultados?.length || 0) + ' de ' + data.total + ' (detenida, omitidos: ' + (data.omitidos || 0) + ')';
-          mostrarBanner(data.error || 'La campaña se detuvo por un error.', 'error');
+          mostrarBanner(data.error || 'La campaña se detuvo por un error.', data.manual ? 'aviso' : 'error');
           snack('Campaña detenida');
-          verificarTwilio();
+          if (!data.manual) verificarTwilio();
         }
       } catch {}
     }, 3000);
