@@ -116,6 +116,7 @@ function crearServicioVoces(opciones) {
   const baseUrl = String(opciones.baseUrl || "https://api.elevenlabs.io").replace(/\/$/, "");
   const modelId = opciones.modelId || "eleven_multilingual_v2";
   const formato = opciones.formato || "mp3_44100_128";
+  const ajustesVoz = opciones.ajustesVoz || null;
   const directorio = opciones.directorio;
   const publicBaseUrl = String(opciones.publicBaseUrl || "").replace(/\/$/, "");
   const concurrenciaMaxima = Math.max(1, parseInt(opciones.concurrencia, 10) || 3);
@@ -139,7 +140,7 @@ function crearServicioVoces(opciones) {
   }
 
   function claveDeAudio(vozId, texto) {
-    return crypto.createHash("sha1").update(`${vozId}|${modelId}|${formato}|${texto}`).digest("hex");
+    return crypto.createHash("sha1").update(`${vozId}|${modelId}|${formato}|${JSON.stringify(ajustesVoz)}|${texto}`).digest("hex");
   }
 
   async function solicitar(metodo, ruta, cuerpoJson) {
@@ -231,7 +232,7 @@ function crearServicioVoces(opciones) {
       const respuesta = await solicitar(
         "POST",
         `/v1/text-to-speech/${encodeURIComponent(vozId)}?output_format=${encodeURIComponent(formato)}`,
-        { text: limpio, model_id: modelId }
+        ajustesVoz ? { text: limpio, model_id: modelId, voice_settings: ajustesVoz } : { text: limpio, model_id: modelId }
       );
       if (!respuesta.cuerpo.length) {
         throw new ErrorElevenLabs("ElevenLabs devolvió un audio vacío.", { codigo: "audio_vacio" });

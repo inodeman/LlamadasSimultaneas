@@ -1,875 +1,642 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BroadcastDemo — Campañas Masivas</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<html lang="es"><head>
+  <meta charset="UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>BroadcastPro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Text:wght@400;500;700&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0d0f14;
-      --surface: #161a23;
-      --surface2: #1e2433;
-      --border: #2a3045;
-      --border-light: #313a52;
-      --accent: #4f7cff;
-      --accent-hover: #6690ff;
-      --accent-dim: rgba(79,124,255,0.12);
-      --green: #22c55e;
-      --green-dim: rgba(34,197,94,0.12);
-      --red: #f43f5e;
-      --red-dim: rgba(244,63,94,0.12);
-      --yellow: #f59e0b;
-      --yellow-dim: rgba(245,158,11,0.12);
-      --text: #e8ecf4;
-      --text-muted: #7a8499;
-      --text-dim: #4a5268;
-      --radius: 10px;
-      --radius-sm: 6px;
+      --md-primary: #1B6EF3;
+      --md-on-primary: #fff;
+      --md-primary-container: #D8E2FF;
+      --md-on-primary-container: #001257;
+      --md-secondary: #00696C;
+      --md-secondary-container: #6FF6FB;
+      --md-on-secondary-container: #002021;
+      --md-surface: #F9F9FF;
+      --md-surface-1: #EEF0FA;
+      --md-surface-2: #E8EAFC;
+      --md-on-surface: #1A1B21;
+      --md-on-surface-variant: #44464E;
+      --md-outline: #757780;
+      --md-outline-variant: #C5C6D0;
+      --md-error: #BA1A1A;
+      --md-error-container: #FFDAD6;
+      --md-success: #006E1C;
+      --md-success-container: #94F990;
+      --md-warning: #7B5800;
+      --md-warning-container: #FFDEA0;
+      --md-info: #00639B;
+      --md-info-container: #CCE5FF;
+      --md-shadow: 0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+      --md-shadow-2: 0 3px 6px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.08);
+      --md-radius-sm: 8px;
+      --md-radius-md: 12px;
+      --md-radius-lg: 16px;
+      --md-radius-xl: 28px;
     }
 
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      font-size: 14px;
-      line-height: 1.5;
-    }
+    body { font-family: 'Google Sans Text', 'Google Sans', sans-serif; background: var(--md-surface); color: var(--md-on-surface); min-height: 100vh; font-size: 14px; line-height: 1.5; }
 
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 32px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      height: 60px;
-    }
+    .top-bar { background: var(--md-surface-1); padding: 12px 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; box-shadow: var(--md-shadow); }
+    .top-bar-icon { width: 40px; height: 40px; background: var(--md-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .top-bar-title { font-family: 'Google Sans', sans-serif; font-size: 22px; font-weight: 400; flex: 1; }
+    .status-chip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--md-success-container); color: var(--md-success); border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--md-success); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 16px;
-      color: var(--text);
-    }
+    .layout { display: flex; min-height: calc(100vh - 64px); }
 
-    .logo-icon {
-      width: 32px;
-      height: 32px;
-      background: var(--accent);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
+    .nav-rail { width: 80px; background: var(--md-surface-1); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; flex-shrink: 0; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; border-radius: var(--md-radius-xl); cursor: pointer; width: 64px; border: none; background: none; color: var(--md-on-surface-variant); font-family: inherit; font-size: 11px; transition: all 0.2s; }
+    .nav-item .icon { width: 48px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 16px; font-size: 20px; transition: all 0.2s; }
+    .nav-item.active .icon { background: var(--md-secondary-container); }
+    .nav-item.active { color: var(--md-on-secondary-container); }
 
-    .header-status {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
+    .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: var(--md-surface-1); padding: 8px 0 16px; z-index: 100; box-shadow: 0 -1px 3px rgba(0,0,0,.08); }
+    .bottom-nav-inner { display: flex; justify-content: space-around; }
+    .bottom-nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 16px; cursor: pointer; border: none; background: none; color: var(--md-on-surface-variant); font-family: inherit; font-size: 11px; }
+    .bottom-nav-item .icon { width: 56px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 16px; font-size: 20px; transition: background 0.2s; }
+    .bottom-nav-item.active .icon { background: var(--md-secondary-container); }
+    .bottom-nav-item.active { color: var(--md-on-secondary-container); font-weight: 500; }
 
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 6px var(--green);
-    }
+    .content { flex: 1; padding: 16px; overflow-y: auto; max-width: 720px; margin: 0 auto; width: 100%; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: flex; flex-direction: column; gap: 12px; }
 
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 24px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
+    .card { background: var(--md-surface-1); border-radius: var(--md-radius-lg); padding: 20px; box-shadow: var(--md-shadow); }
+    .card-title { font-family: 'Google Sans', sans-serif; font-size: 16px; font-weight: 500; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
 
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-label { font-size: 12px; font-weight: 500; color: var(--md-primary); margin-bottom: 4px; display: block; }
 
-    .panel-header {
-      padding: 20px 24px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .md-input { width: 100%; background: var(--md-surface); border: 1.5px solid var(--md-outline-variant); border-radius: var(--md-radius-sm); color: var(--md-on-surface); font-family: inherit; font-size: 16px; padding: 14px 16px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
+    .md-input:focus { border-color: var(--md-primary); }
+    textarea.md-input { resize: vertical; min-height: 90px; }
 
-    .panel-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-    }
+    .md-select { width: 100%; background: var(--md-surface); border: 1.5px solid var(--md-outline-variant); border-radius: var(--md-radius-sm); color: var(--md-on-surface); font-family: inherit; font-size: 16px; padding: 14px 16px; outline: none; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%2344464E' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 40px; cursor: pointer; }
+    .md-select:focus { border-color: var(--md-primary); }
 
-    .panel-icon.calls { background: var(--accent-dim); }
-    .panel-icon.whatsapp { background: var(--green-dim); }
+    .supporting-text { font-size: 12px; color: var(--md-on-surface-variant); margin-top: 4px; }
 
-    .panel-title { font-weight: 600; font-size: 15px; }
-    .panel-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .audio-generator { background: var(--md-primary-container); border-radius: var(--md-radius-md); padding: 16px; margin-bottom: 16px; }
+    .audio-generator-title { font-size: 13px; font-weight: 500; color: var(--md-on-primary-container); margin-bottom: 12px; }
+    .audio-preview { background: var(--md-surface); border-radius: var(--md-radius-sm); padding: 12px; margin-top: 12px; display: none; }
+    .audio-preview.visible { display: block; }
+    audio { width: 100%; height: 40px; }
 
-    .panel-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+    .btn-filled { width: 100%; padding: 16px; background: var(--md-primary); border: none; border-radius: var(--md-radius-xl); color: var(--md-on-primary); font-family: 'Google Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-filled:hover { opacity: 0.92; box-shadow: var(--md-shadow-2); }
+    .btn-filled:disabled { opacity: 0.38; cursor: not-allowed; }
+    .btn-filled.teal { background: var(--md-secondary); }
 
-    label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .btn-tonal { width: 100%; padding: 14px; background: var(--md-primary-container); border: none; border-radius: var(--md-radius-xl); color: var(--md-on-primary-container); font-family: 'Google Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-tonal:disabled { opacity: 0.38; cursor: not-allowed; }
 
-    input[type="text"], input[type="number"], textarea, select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text);
-      font-family: inherit;
-      font-size: 14px;
-      padding: 10px 12px;
-      transition: border-color 0.15s;
-      outline: none;
-    }
+    .btn-text { background: none; border: none; color: var(--md-primary); font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; padding: 8px 12px; border-radius: var(--md-radius-xl); transition: background 0.15s; }
+    .btn-text:hover { background: rgba(27,110,243,0.08); }
 
-    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-    textarea { resize: vertical; min-height: 80px; }
+    .row-btns { display: flex; gap: 8px; }
 
-    .input-prefix {
-      display: flex;
-      align-items: stretch;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      overflow: hidden;
-      transition: border-color 0.15s;
-    }
+    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 1.5px solid var(--md-outline-variant); cursor: pointer; background: var(--md-surface); color: var(--md-on-surface-variant); transition: all 0.15s; }
+    .chip:hover { background: var(--md-surface-2); }
+    .chip.active { background: var(--md-secondary-container); border-color: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+    .chips-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 
-    .input-prefix:focus-within { border-color: var(--accent); }
+    .csv-zone { border: 2px dashed var(--md-outline-variant); border-radius: var(--md-radius-md); padding: 24px 16px; text-align: center; color: var(--md-on-surface-variant); cursor: pointer; transition: all 0.2s; font-size: 14px; }
+    .csv-zone:hover, .csv-zone.over { border-color: var(--md-primary); color: var(--md-primary); background: rgba(27,110,243,0.05); }
+    .csv-zone.loaded { border-color: var(--md-success); color: var(--md-success); background: var(--md-success-container); border-style: solid; }
+    .csv-zone input { display: none; }
+    .csv-zone-icon { font-size: 32px; margin-bottom: 8px; }
 
-    .prefix-badge {
-      background: var(--surface2);
-      border-right: 1px solid var(--border);
-      padding: 10px 12px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      color: var(--text-muted);
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-    }
+    .progress-card { background: var(--md-surface-2); border-radius: var(--md-radius-md); padding: 16px; display: none; }
+    .progress-card.visible { display: block; }
+    .progress-track { height: 4px; background: var(--md-outline-variant); border-radius: 2px; overflow: hidden; margin: 12px 0 8px; }
+    .progress-fill { height: 100%; background: var(--md-primary); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+    .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--md-on-surface-variant); }
 
-    .input-prefix input {
-      border: none;
-      border-radius: 0;
-      flex: 1;
-    }
+    /* PANEL DE ESTATUS */
+    .status-panel { background: var(--md-surface-1); border-radius: var(--md-radius-lg); overflow: hidden; box-shadow: var(--md-shadow); }
 
-    .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+    .status-panel-header { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--md-outline-variant); }
+    .status-panel-title { font-family: 'Google Sans', sans-serif; font-size: 16px; font-weight: 500; }
 
-    .voice-list {
-      margin-top: 8px;
-      max-height: 240px;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--bg);
-    }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--md-outline-variant); }
+    .stat-box { padding: 16px 12px; text-align: center; border-right: 1px solid var(--md-outline-variant); }
+    .stat-box:last-child { border-right: none; }
+    .stat-num { font-family: 'Google Sans', sans-serif; font-size: 26px; font-weight: 500; }
+    .stat-label { font-size: 11px; color: var(--md-on-surface-variant); margin-top: 2px; }
+    .stat-num.blue { color: var(--md-primary); }
+    .stat-num.green { color: var(--md-success); }
+    .stat-num.red { color: var(--md-error); }
+    .stat-num.yellow { color: var(--md-warning); }
+    .stat-num.teal { color: var(--md-secondary); }
 
-    .voice-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-    }
+    .call-status-legend { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--md-outline-variant); background: var(--md-surface-2); }
+    .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--md-on-surface-variant); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-    .voice-item:last-child { border-bottom: none; }
+    .results-list { max-height: 450px; overflow-y: auto; }
 
-    .voice-pick {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex: 1;
-      min-width: 0;
-      margin: 0;
-      cursor: pointer;
-      text-transform: none;
-      letter-spacing: 0;
-      font-size: 13px;
-      color: var(--text-muted);
-    }
+    .result-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--md-outline-variant); transition: background 0.15s; }
+    .result-item:last-child { border-bottom: none; }
+    .result-item:hover { background: var(--md-surface-2); }
 
-    .voice-info { display: flex; flex-direction: column; min-width: 0; }
-    .voice-name { color: var(--text); font-weight: 500; }
-    .voice-meta { color: var(--text-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .voice-empty { padding: 16px; font-size: 12px; color: var(--text-muted); text-align: center; }
-    .voice-error { color: var(--red); }
+    .result-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
 
-    .nums-area { position: relative; }
+    .result-info { flex: 1; min-width: 0; }
+    .result-num { font-size: 14px; font-weight: 500; }
+    .result-name { font-size: 12px; color: var(--md-on-surface-variant); }
+    .result-meta { font-size: 11px; color: var(--md-on-surface-variant); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .nums-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
+    .call-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; flex-shrink: 0; white-space: nowrap; }
+    .badge-initiated    { background: #E8EAFC; color: #44464E; }
+    .badge-ringing      { background: var(--md-info-container); color: var(--md-info); }
+    .badge-answered     { background: #D8E2FF; color: var(--md-primary); }
+    .badge-completada   { background: var(--md-success-container); color: var(--md-success); }
+    .badge-no-contesto  { background: var(--md-warning-container); color: var(--md-warning); }
+    .badge-ocupado      { background: #FFE5B4; color: #7B4500; }
+    .badge-error        { background: var(--md-error-container); color: var(--md-error); }
+    .badge-fallida      { background: var(--md-error-container); color: var(--md-error); }
+    .badge-cancelada    { background: #E8EAFC; color: #44464E; }
+    .badge-enviado      { background: var(--md-success-container); color: var(--md-success); }
+    .badge-iniciada     { background: #D8E2FF; color: var(--md-primary); }
+    .badge-timbrando    { background: var(--md-info-container); color: var(--md-info); }
 
-    .btn-ghost {
-      padding: 6px 12px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: inherit;
-    }
+    .duracion-chip { font-size: 11px; color: var(--md-on-surface-variant); background: var(--md-surface-2); padding: 2px 8px; border-radius: 12px; margin-left: 4px; }
 
-    .btn-ghost:hover { border-color: var(--border-light); color: var(--text); }
+    .empty-state { padding: 48px 20px; text-align: center; color: var(--md-on-surface-variant); }
+    .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
 
-    .csv-drop {
-      border: 2px dashed var(--border);
-      border-radius: var(--radius-sm);
-      padding: 20px;
-      text-align: center;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.15s;
-      font-size: 13px;
-    }
+    .live-indicator { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--md-primary); font-weight: 500; }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--md-primary); animation: pulse 1s infinite; }
 
-    .csv-drop:hover, .csv-drop.over { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-    .csv-drop.loaded { border-color: var(--green); color: var(--green); background: var(--green-dim); }
-    .csv-drop input { display: none; }
+    .fab-export { position: fixed; bottom: 88px; right: 16px; background: var(--md-secondary-container); color: var(--md-on-secondary-container); border: none; border-radius: 16px; padding: 16px 20px; font-family: 'Google Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; display: none; align-items: center; gap: 8px; box-shadow: var(--md-shadow-2); z-index: 50; }
+    .fab-export.visible { display: flex; }
 
-    .msg-field { position: relative; }
-    .msg-placeholder-hint {
-      position: absolute;
-      top: 8px;
-      right: 10px;
-      font-size: 11px;
-      color: var(--accent);
-      cursor: pointer;
-      user-select: none;
-      background: var(--accent-dim);
-      padding: 2px 8px;
-      border-radius: 4px;
-    }
+    .snackbar { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: #313033; color: #fff; padding: 14px 20px; border-radius: var(--md-radius-sm); font-size: 14px; opacity: 0; transition: all 0.3s; z-index: 200; white-space: nowrap; max-width: 90vw; }
+    .snackbar.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    .msg-placeholder-hint:hover { background: var(--accent); color: #fff; }
+    @media (min-width: 600px) { .nav-rail { display: flex; } .bottom-nav { display: none; } .fab-export { bottom: 24px; } }
+    @media (max-width: 599px) { .nav-rail { display: none; } .bottom-nav { display: block; } .layout { padding-bottom: 80px; } .content { padding: 12px; } .card { padding: 16px; } .snackbar { bottom: 88px; } .stats-grid { grid-template-columns: repeat(2, 1fr); } .stat-box:nth-child(2) { border-right: none; } }
 
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .status-chip.aviso { background: var(--md-warning-container); color: var(--md-warning); }
+    .status-chip.aviso .status-dot { background: var(--md-warning); }
+    .status-chip.error { background: var(--md-error-container); color: var(--md-error); }
+    .status-chip.error .status-dot { background: var(--md-error); }
 
-    .btn-primary {
-      width: 100%;
-      padding: 12px;
-      background: var(--accent);
-      border: none;
-      border-radius: var(--radius-sm);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      font-family: inherit;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
+    .twilio-banner { display: none; background: var(--md-error-container); color: var(--md-error); padding: 12px 20px; font-size: 13px; line-height: 1.4; }
+    .twilio-banner.visible { display: block; }
+    .twilio-banner.aviso { background: var(--md-warning-container); color: var(--md-warning); }
 
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary.green { background: #16a34a; }
-    .btn-primary.green:hover { background: #15803d; }
+    .voz-buscar { margin-bottom: 8px; }
+    .voz-lista { max-height: 240px; overflow-y: auto; background: var(--md-surface); border-radius: var(--md-radius-sm); border: 1px solid var(--md-outline-variant); }
+    .voz-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--md-outline-variant); font-size: 13px; }
+    .voz-item:last-child { border-bottom: none; }
+    .voz-item label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .voz-item input { flex-shrink: 0; }
+    .voz-nombre { font-weight: 500; }
+    .voz-detalle { font-size: 11px; color: var(--md-on-surface-variant); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .voz-texto { min-width: 0; }
+    .voz-resumen { font-size: 12px; color: var(--md-on-primary-container); margin: 8px 0; }
+    .voz-estado { padding: 12px; font-size: 13px; color: var(--md-on-surface-variant); }
 
-    .progress-wrap { display: none; flex-direction: column; gap: 8px; }
-    .progress-wrap.visible { display: flex; }
-
-    .progress-bar-track {
-      height: 4px;
-      background: var(--surface2);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--accent);
-      border-radius: 2px;
-      transition: width 0.3s ease;
-      width: 0%;
-    }
-
-    .progress-label { font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; }
-
-    .log-panel {
-      grid-column: 1 / -1;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    .log-header {
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .log-title { font-weight: 600; font-size: 14px; }
-
-    .log-actions { display: flex; gap: 8px; }
-
-    .stats-row {
-      display: flex;
-      gap: 16px;
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .stat {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-    }
-
-    .stat-num { font-weight: 700; font-size: 20px; }
-    .stat-num.green { color: var(--green); }
-    .stat-num.red { color: var(--red); }
-    .stat-num.yellow { color: var(--yellow); }
-    .stat-num.blue { color: var(--accent); }
-
-    .stat-label { color: var(--text-muted); font-size: 11px; }
-
-    .results-table-wrap { overflow-x: auto; max-height: 380px; overflow-y: auto; }
-
-    table { width: 100%; border-collapse: collapse; }
-
-    thead th {
-      padding: 10px 16px;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      background: var(--surface);
-    }
-
-    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
-    tbody tr:hover { background: var(--surface2); }
-    tbody tr:last-child { border-bottom: none; }
-
-    td { padding: 10px 16px; font-size: 13px; }
-
-    .td-mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
-    .badge.iniciada { background: var(--accent-dim); color: var(--accent); }
-    .badge.enviado { background: var(--green-dim); color: var(--green); }
-    .badge.error { background: var(--red-dim); color: var(--red); }
-    .badge.completada { background: var(--green-dim); color: var(--green); }
-
-    .empty-log {
-      padding: 60px 24px;
-      text-align: center;
-      color: var(--text-dim);
-    }
-
-    .empty-log p { margin-top: 8px; font-size: 13px; }
-
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    @media (max-width: 780px) {
-      main { grid-template-columns: 1fr; }
-      .log-panel { grid-column: 1; }
-    }
+    ::-webkit-scrollbar-thumb { background: var(--md-outline-variant); border-radius: 2px; }
   </style>
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="logo-icon">📡</div>
-    BroadcastDemo
-  </div>
-  <div class="header-status">
-    <div class="dot" id="statusDot"></div>
-    <span id="statusText">Conectado</span>
-  </div>
-</header>
+<div class="top-bar">
+  <div class="top-bar-icon">📡</div>
+  <div class="top-bar-title">BroadcastPro</div>
+  <div class="status-chip" id="statusChip"><div class="status-dot"></div><span id="statusChipText">En línea</span></div>
+</div>
+<div class="twilio-banner" id="twilioBanner"></div>
 
-<div id="twilioBanner" style="display:none; background:var(--red-dim); color:var(--red); border-bottom:1px solid var(--red); padding:12px 24px; font-size:13px; font-weight:600;">
-  La cuenta de Twilio no está activa o rechazó las credenciales. No se podrán hacer llamadas ni enviar mensajes hasta resolverlo. Revisa el estado de la cuenta y el saldo en console.twilio.com y confirma que el Auth Token del archivo .env sea el vigente.
+<div class="layout">
+  <nav class="nav-rail">
+    <button class="nav-item active" onclick="switchTab('llamadas', this)"><div class="icon">📞</div>Llamadas</button>
+    <button class="nav-item" onclick="switchTab('whatsapp', this)"><div class="icon">💬</div>WhatsApp</button>
+    <button class="nav-item" onclick="switchTab('resultados', this)"><div class="icon">📊</div>Estatus</button>
+  </nav>
+
+  <main class="content">
+
+    <!-- LLAMADAS -->
+    <div class="tab-panel active" id="tab-llamadas">
+      <div class="card">
+        <div class="card-title">🎙️ Mensaje de voz</div>
+        <div class="field">
+          <span class="field-label">Tipo de audio</span>
+          <select class="md-select" id="audioType" onchange="toggleAudioType()">
+            <option value="generar">Generar con IA (ElevenLabs)</option>
+            <option value="mp3">URL de audio MP3</option>
+            <option value="tts">TTS básico (Twilio)</option>
+          </select>
+        </div>
+
+        <div id="generarWrap" class="audio-generator">
+          <div class="audio-generator-title">✨ Generador de audio con IA</div>
+          <div class="field" style="margin-bottom:12px;">
+            <span class="field-label">Voces de ElevenLabs (si eliges varias, se reparten entre los contactos)</span>
+            <input class="md-input voz-buscar" type="text" id="vozBuscar" placeholder="Buscar voz por nombre, género o acento" oninput="renderVoces()">
+            <div class="voz-lista" id="vozLista"><div class="voz-estado">Cargando voces...</div></div>
+            <div class="voz-resumen" id="vozResumen"></div>
+          </div>
+          <div class="field" style="margin-bottom:12px;">
+            <textarea class="md-input" id="audioTexto" placeholder="Escribe el mensaje. Usa {nombre} para personalizar." style="min-height:80px;"></textarea>
+          </div>
+          <div class="row-btns">
+            <button class="btn-text" onclick="insertarNombre('audioTexto')">+ {nombre}</button>
+            <button class="btn-tonal" id="btnGenerar" onclick="generarAudio()" style="flex:2;">✨ Generar audio</button>
+          </div>
+          <div class="audio-preview" id="audioPreview">
+            <div style="font-size:12px;color:var(--md-on-primary-container);margin-bottom:8px;font-weight:500;">Vista previa</div>
+            <audio id="audioPlayer" controls=""></audio>
+            <div style="font-size:11px;color:var(--md-on-surface-variant);margin-top:6px;" id="audioUrlLabel"></div>
+          </div>
+        </div>
+
+        <div id="mp3Wrap" style="display:none;" class="field">
+          <span class="field-label">URL del MP3</span>
+          <input class="md-input" type="text" id="mp3Url" placeholder="https://...">
+        </div>
+
+        <div id="ttsWrap" style="display:none;" class="field">
+          <span class="field-label">Texto a leer</span>
+          <div style="position:relative;">
+            <button class="btn-text" style="position:absolute;top:6px;right:6px;font-size:12px;padding:4px 8px;" onclick="insertarNombre('ttsTexto')">+ {nombre}</button>
+            <textarea class="md-input" id="ttsTexto" placeholder="Hola {nombre}, le informamos que..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">👥 Contactos</div>
+        <div class="chips-row">
+          <div class="chip active" id="chipManual" onclick="modoContacto('manual')">✏️ Manual</div>
+          <div class="chip" id="chipCsv" onclick="modoContacto('csv')">📄 CSV</div>
+          <button class="btn-text" style="margin-left:auto;font-size:12px;" onclick="descargarEjemplo()">Descargar ejemplo</button>
+        </div>
+        <div id="manualWrap">
+          <textarea class="md-input" id="callsNums" placeholder="Un número por línea
+6141234567
+6149876543  Juan Pérez
+
+Sin +52, se agrega automático"></textarea>
+          <div class="supporting-text">Agrega nombre con Tab o dos espacios después del número.</div>
+        </div>
+        <div id="csvWrap" style="display:none;">
+          <div class="csv-zone" id="callsCsvDrop" onclick="document.getElementById('callsCsvInput').click()">
+            <input type="file" id="callsCsvInput" accept=".csv,.txt">
+            <div class="csv-zone-icon">📄</div>
+            <div>Arrastra tu CSV o toca para subir</div>
+            <div style="font-size:12px;margin-top:4px;opacity:0.7;">Columnas: numero, nombre</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:12px;">
+          <div style="flex:1;">
+            <span class="field-label">Llamadas en paralelo</span>
+            <input class="md-input" type="number" id="callsConcurrency" value="5" min="1" max="50">
+            <div class="supporting-text">Twilio: ~1/seg</div>
+          </div>
+          <div style="flex:1;">
+            <span class="field-label">Contactos</span>
+            <div id="callsCount" style="padding:14px 0;font-size:16px;color:var(--md-on-surface-variant);">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-card" id="callsProgress">
+        <div style="font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;">
+          Campaña en curso
+          <span class="live-indicator"><span class="live-dot"></span>EN VIVO</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="callsBar"></div></div>
+        <div class="progress-meta"><span id="callsProgressText">0 enviados</span><span id="callsProgressPct">0%</span></div>
+      </div>
+
+      <button class="btn-filled" id="callsBtn" onclick="lanzarCalls()">📞 Iniciar campaña de llamadas</button>
+    </div>
+
+    <!-- WHATSAPP -->
+    <div class="tab-panel" id="tab-whatsapp">
+      <div class="card">
+        <div class="card-title">💬 Mensaje de WhatsApp</div>
+        <div class="field">
+          <div style="position:relative;">
+            <button class="btn-text" style="position:absolute;top:6px;right:6px;font-size:12px;padding:4px 8px;" onclick="insertarNombre('waMsg')">+ {nombre}</button>
+            <textarea class="md-input" id="waMsg" placeholder="Hola {nombre}, le informamos que..."></textarea>
+          </div>
+          <div class="supporting-text">Sandbox: el destinatario debió enviar primero un mensaje al número de Twilio.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">👥 Contactos</div>
+        <div class="chips-row">
+          <div class="chip active" id="waChipManual" onclick="modoContactoWa('manual')">✏️ Manual</div>
+          <div class="chip" id="waChipCsv" onclick="modoContactoWa('csv')">📄 CSV</div>
+          <button class="btn-text" style="margin-left:auto;font-size:12px;" onclick="descargarEjemplo()">Descargar ejemplo</button>
+        </div>
+        <div id="waManualWrap">
+          <textarea class="md-input" id="waNums" placeholder="6141234567
+6149876543  Juan Pérez"></textarea>
+        </div>
+        <div id="waCsvWrap" style="display:none;">
+          <div class="csv-zone" id="waCsvDrop" onclick="document.getElementById('waCsvInput').click()">
+            <input type="file" id="waCsvInput" accept=".csv,.txt">
+            <div class="csv-zone-icon">📄</div>
+            <div>Arrastra tu CSV o toca para subir</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <span class="field-label">Mensajes en paralelo</span>
+          <input class="md-input" type="number" id="waConcurrency" value="10" min="1" max="50">
+        </div>
+      </div>
+
+      <div class="progress-card" id="waProgress">
+        <div style="font-size:14px;font-weight:500;">Enviando mensajes...</div>
+        <div class="progress-track"><div class="progress-fill" id="waBar" style="background:var(--md-secondary);"></div></div>
+        <div class="progress-meta"><span id="waProgressText">0 enviados</span><span id="waProgressPct">0%</span></div>
+      </div>
+
+      <button class="btn-filled teal" id="waBtn" onclick="lanzarWA()">💬 Iniciar campaña de WhatsApp</button>
+    </div>
+
+    <!-- ESTATUS -->
+    <div class="tab-panel" id="tab-resultados">
+      <div class="status-panel">
+        <div class="status-panel-header">
+          <div class="status-panel-title">📊 Panel de estatus de llamadas</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span id="liveTag" style="display:none;" class="live-indicator"><span class="live-dot"></span>EN VIVO</span>
+            <button class="btn-text" onclick="exportarCSV()" style="font-size:12px;">Exportar</button>
+            <button class="btn-text" onclick="limpiarLog()" style="font-size:12px;">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid" style="display:none;">
+          <div class="stat-box"><div class="stat-num blue" id="statTotal">0</div><div class="stat-label">Total</div></div>
+          <div class="stat-box"><div class="stat-num green" id="statContestadas">0</div><div class="stat-label">Contestadas</div></div>
+          <div class="stat-box"><div class="stat-num yellow" id="statNoContesto">0</div><div class="stat-label">No contestó</div></div>
+          <div class="stat-box"><div class="stat-num red" id="statError">0</div><div class="stat-label">Error / Fallida</div></div>
+        </div>
+
+        <div class="call-status-legend" id="legendBar" style="display:none;">
+          <div class="legend-item"><div class="legend-dot" style="background:#006E1C;"></div>Contestada / Completada</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#00639B;"></div>Timbrando</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#7B5800;"></div>No contestó / Ocupado</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#BA1A1A;"></div>Error / Fallida</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#44464E;"></div>Iniciada / Cancelada</div>
+        </div>
+
+        <div class="empty-state" id="emptyState">
+          <div class="empty-state-icon">📊</div>
+          <p>El estatus de cada llamada<br>aparece aquí en tiempo real</p>
+        </div>
+
+        <div class="results-list" id="resultsList"></div>
+      </div>
+    </div>
+
+  </main>
 </div>
 
-<main>
-
-  <!-- LLAMADAS -->
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-icon calls">📞</div>
-      <div>
-        <div class="panel-title">Campaña de Llamadas</div>
-        <div class="panel-subtitle">Voz masiva con TTS o audio MP3</div>
-      </div>
-    </div>
-    <div class="panel-body">
-
-      <div class="nums-area">
-        <label>Números de teléfono</label>
-        <div class="csv-drop" id="callsCsvDrop" onclick="document.getElementById('callsCsvInput').click()">
-          <input type="file" id="callsCsvInput" accept=".csv,.txt" />
-          Arrastra un CSV aquí o haz clic para subir
-          <div style="font-size:11px;margin-top:4px;">Columnas: <code>numero</code>, <code>nombre</code> (nombre es opcional)</div>
-        </div>
-        <div class="nums-actions">
-          <button class="btn-ghost" onclick="toggleTextInput('calls')">Ingresar manualmente</button>
-          <button class="btn-ghost" onclick="descargarCSVEjemplo()">Descargar CSV de ejemplo</button>
-        </div>
-        <div id="callsTextWrap" style="display:none;margin-top:10px;">
-          <textarea id="callsNums" placeholder="Un número por línea o separados por coma&#10;Puedes agregar nombre con Tab: 6141234567&#9;Juan&#10;6149876543&#9;María&#10;&#10;Sin +52, se agrega automático"></textarea>
-          <div class="hint">Sin código de país: se agrega +52 automáticamente. Con nombre: separar con Tab o dos espacios.</div>
-        </div>
-      </div>
-
-      <div>
-        <label>Tipo de audio</label>
-        <select id="callsAudioType" onchange="toggleAudioType()">
-          <option value="tts">Texto a voz (TTS automático)</option>
-          <option value="eleven">Voces de ElevenLabs (una o varias)</option>
-          <option value="mp3">Archivo MP3 (URL pública)</option>
-        </select>
-      </div>
-
-      <div id="callsTtsWrap" class="msg-field">
-        <label>Mensaje de voz</label>
-        <span class="msg-placeholder-hint" onclick="insertarNombre('callsMsg')">+ {nombre}</span>
-        <textarea id="callsMsg" placeholder="Hola {nombre}, le informamos que su cita es mañana a las 10 AM. Gracias."></textarea>
-        <div class="hint">Usa {nombre} para personalizar por contacto. <span id="callsVoiceNote">Voz: Mia (español México).</span></div>
-      </div>
-
-      <div id="callsElevenWrap" style="display:none;">
-        <label>Voces de ElevenLabs</label>
-        <input type="text" id="voiceSearch" placeholder="Buscar por nombre, acento o tipo de voz" oninput="renderVoces()" />
-        <div id="voiceList" class="voice-list"></div>
-        <div class="hint">Marca una voz para todas las llamadas, o varias para alternarlas entre los contactos. Usa Escuchar para probar la voz con tu mensaje.</div>
-        <div class="hint" id="voiceSelected">Ninguna voz seleccionada</div>
-      </div>
-
-      <div id="callsMp3Wrap" style="display:none;">
-        <label>URL del archivo MP3</label>
-        <input type="text" id="callsAudioUrl" placeholder="https://tu-ngrok.ngrok-free.app/audio/mensaje.mp3" />
-        <div class="hint">Sube el MP3 a la carpeta <code>public/audio/</code> del proyecto.</div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>Llamadas en paralelo</label>
-          <input type="number" id="callsConcurrency" value="5" min="1" max="50" />
-          <div class="hint">Twilio procesa ~1/seg por defecto</div>
-        </div>
-        <div>
-          <label>Listo para enviar</label>
-          <div id="callsPreview" style="padding:10px 0;font-size:13px;color:var(--text-muted);">—</div>
-        </div>
-      </div>
-
-      <div class="progress-wrap" id="callsProgress">
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill" id="callsProgressBar"></div>
-        </div>
-        <div class="progress-label">
-          <span id="callsProgressText">Iniciando...</span>
-          <span id="callsProgressPct">0%</span>
-        </div>
-      </div>
-
-      <button class="btn-primary" id="callsBtn" onclick="lanzarCalls()">
-        <span>Iniciar campaña de llamadas</span>
-      </button>
-    </div>
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bottom-nav-item active" id="bn-llamadas" onclick="switchTab('llamadas', this, true)"><div class="icon">📞</div>Llamadas</button>
+    <button class="bottom-nav-item" id="bn-whatsapp" onclick="switchTab('whatsapp', this, true)"><div class="icon">💬</div>WhatsApp</button>
+    <button class="bottom-nav-item" id="bn-resultados" onclick="switchTab('resultados', this, true)"><div class="icon">📊</div>Estatus</button>
   </div>
+</nav>
 
-  <!-- WHATSAPP -->
-  <div class="panel">
-    <div class="panel-header">
-      <div class="panel-icon whatsapp">💬</div>
-      <div>
-        <div class="panel-title">Campaña de WhatsApp</div>
-        <div class="panel-subtitle">Mensajes masivos vía Twilio Sandbox</div>
-      </div>
-    </div>
-    <div class="panel-body">
-
-      <div class="nums-area">
-        <label>Números de teléfono</label>
-        <div class="csv-drop" id="waCsvDrop" onclick="document.getElementById('waCsvInput').click()">
-          <input type="file" id="waCsvInput" accept=".csv,.txt" />
-          Arrastra un CSV aquí o haz clic para subir
-          <div style="font-size:11px;margin-top:4px;">Columnas: <code>numero</code>, <code>nombre</code> (nombre es opcional)</div>
-        </div>
-        <div class="nums-actions">
-          <button class="btn-ghost" onclick="toggleTextInput('wa')">Ingresar manualmente</button>
-          <button class="btn-ghost" onclick="descargarCSVEjemplo()">Descargar CSV de ejemplo</button>
-        </div>
-        <div id="waTextWrap" style="display:none;margin-top:10px;">
-          <textarea id="waNums" placeholder="Un número por línea o separados por coma&#10;6141234567&#9;Juan&#10;6149876543&#10;&#10;Sin +52, se agrega automático"></textarea>
-          <div class="hint">Sin código de país: se agrega +52 automáticamente.</div>
-        </div>
-      </div>
-
-      <div class="msg-field">
-        <label>Mensaje de WhatsApp</label>
-        <span class="msg-placeholder-hint" onclick="insertarNombre('waMsg')">+ {nombre}</span>
-        <textarea id="waMsg" placeholder="Hola {nombre}, le recordamos su cita programada para mañana. Para confirmar responda SI."></textarea>
-        <div class="hint">Usa {nombre} para personalizar. Sandbox: el destinatario debió enviar primero un mensaje al número de Twilio.</div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>Mensajes en paralelo</label>
-          <input type="number" id="waConcurrency" value="10" min="1" max="50" />
-        </div>
-        <div>
-          <label>Listo para enviar</label>
-          <div id="waPreview" style="padding:10px 0;font-size:13px;color:var(--text-muted);">—</div>
-        </div>
-      </div>
-
-      <div class="progress-wrap" id="waProgress">
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill" id="waProgressBar"></div>
-        </div>
-        <div class="progress-label">
-          <span id="waProgressText">Iniciando...</span>
-          <span id="waProgressPct">0%</span>
-        </div>
-      </div>
-
-      <button class="btn-primary green" id="waBtn" onclick="lanzarWA()">
-        <span>Iniciar campaña de WhatsApp</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- LOG -->
-  <div class="log-panel">
-    <div class="log-header">
-      <div class="log-title">Resultados de campañas</div>
-      <div class="log-actions">
-        <button class="btn-ghost" onclick="exportarCSV()">Exportar CSV</button>
-        <button class="btn-ghost" onclick="limpiarLog()">Limpiar</button>
-      </div>
-    </div>
-    <div class="stats-row" id="statsRow" style="display:none;">
-      <div class="stat">
-        <div>
-          <div class="stat-num blue" id="statTotal">0</div>
-          <div class="stat-label">Total</div>
-        </div>
-      </div>
-      <div class="stat">
-        <div>
-          <div class="stat-num green" id="statOk">0</div>
-          <div class="stat-label">Exitosos</div>
-        </div>
-      </div>
-      <div class="stat">
-        <div>
-          <div class="stat-num red" id="statErr">0</div>
-          <div class="stat-label">Errores</div>
-        </div>
-      </div>
-      <div class="stat" style="margin-left:auto;">
-        <div>
-          <div class="stat-num yellow" id="statCampaign" style="font-size:13px;"></div>
-          <div class="stat-label">Campaña activa</div>
-        </div>
-      </div>
-    </div>
-    <div id="emptyLog" class="empty-log">
-      <div style="font-size:48px;">📋</div>
-      <p>Los resultados aparecerán aquí cuando inicies una campaña</p>
-    </div>
-    <div class="results-table-wrap" id="tableWrap" style="display:none;">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Número</th>
-            <th>Nombre</th>
-            <th>Voz</th>
-            <th>Estado</th>
-            <th>SID Twilio</th>
-          </tr>
-        </thead>
-        <tbody id="resultsBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-</main>
+<button class="fab-export" id="fabExport" onclick="exportarCSV()">⬇️ Exportar CSV</button>
+<div class="snackbar" id="snackbar"></div>
 
 <script>
   let allResults = [];
   let pollInterval = null;
-  let csvCallsData = null;
-  let csvWaData = null;
+  let csvCallsFile = null;
+  let csvWaFile = null;
+  let audioGenerado = null;
+  let activeTab = 'llamadas';
+  let campaignActiva = null;
+  let voces = [];
+  let vocesSeleccionadas = [];
+  let vozSonando = null;
 
-  async function fetchConfig() {
-    try {
-      const r = await fetch('/api/config');
-      const cfg = await r.json();
-      document.title = `BroadcastDemo — ${cfg.fromNumber || ''}`;
-    } catch {}
+  function esc(valor) {
+    return String(valor === undefined || valor === null ? '' : valor)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  fetchConfig();
+  function mostrarBanner(texto, nivel) {
+    const b = document.getElementById('twilioBanner');
+    b.textContent = texto || '';
+    b.classList.toggle('visible', Boolean(texto));
+    b.classList.toggle('aviso', nivel === 'aviso');
+  }
 
   async function verificarTwilio() {
+    const chip = document.getElementById('statusChip');
+    const txt = document.getElementById('statusChipText');
     try {
       const r = await fetch('/api/twilio/status');
-      const data = await r.json();
-      const dot = document.getElementById('statusDot');
-      const texto = document.getElementById('statusText');
-      const banner = document.getElementById('twilioBanner');
-      if (data.ok) {
-        banner.style.display = 'none';
-        dot.style.background = '';
-        dot.style.boxShadow = '';
-        texto.textContent = 'Conectado';
-      } else if (data.estado === 'error' && !data.rechazada) {
-        banner.style.display = 'none';
-        dot.style.background = 'var(--yellow)';
-        dot.style.boxShadow = '0 0 6px var(--yellow)';
-        texto.textContent = 'Sin conexión con Twilio';
+      const d = await r.json();
+      if (d.ok) {
+        chip.className = 'status-chip';
+        txt.textContent = 'En línea';
+        mostrarBanner('');
+      } else if (d.rechazada) {
+        chip.className = 'status-chip error';
+        txt.textContent = 'Twilio rechazado';
+        mostrarBanner('Twilio rechazó las credenciales de la cuenta, por eso no se pueden hacer llamadas. Entra a console.twilio.com, revisa que la cuenta esté activa y con saldo, y actualiza el Auth Token en el archivo .env del servidor.', 'error');
+      } else if (d.estado && d.estado !== 'error') {
+        chip.className = 'status-chip error';
+        txt.textContent = 'Cuenta ' + d.estado;
+        mostrarBanner('La cuenta de Twilio está en estado "' + d.estado + '" y no puede hacer llamadas. Revísala en console.twilio.com.', 'error');
       } else {
-        banner.style.display = '';
-        dot.style.background = 'var(--red)';
-        dot.style.boxShadow = '0 0 6px var(--red)';
-        texto.textContent = 'Cuenta de Twilio con problema';
+        chip.className = 'status-chip aviso';
+        txt.textContent = 'Sin conexión';
+        mostrarBanner('No se pudo comprobar la cuenta de Twilio desde el servidor. Puede ser un problema de red momentáneo.', 'aviso');
       }
-    } catch {}
-  }
-
-  verificarTwilio();
-
-  let vocesCatalogo = [];
-  let vocesSeleccionadas = [];
-  let vocesCargadas = false;
-  let audioMuestra = null;
-
-  function escapeHtml(valor) {
-    const mapa = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-    return String(valor === null || valor === undefined ? '' : valor).replace(/[&<>"']/g, c => mapa[c]);
-  }
-
-  function toggleAudioType() {
-    const v = document.getElementById('callsAudioType').value;
-    document.getElementById('callsTtsWrap').style.display = (v === 'tts' || v === 'eleven') ? '' : 'none';
-    document.getElementById('callsMp3Wrap').style.display = v === 'mp3' ? '' : 'none';
-    document.getElementById('callsElevenWrap').style.display = v === 'eleven' ? '' : 'none';
-    document.getElementById('callsVoiceNote').textContent = v === 'eleven'
-      ? 'Cada mensaje distinto genera un audio y consume créditos de ElevenLabs.'
-      : 'Voz: Mia (español México).';
-    if (v === 'eleven' && !vocesCargadas) cargarVoces();
+    } catch (e) {
+      chip.className = 'status-chip aviso';
+      txt.textContent = 'Sin conexión';
+    }
   }
 
   async function cargarVoces() {
-    const lista = document.getElementById('voiceList');
-    lista.innerHTML = '<div class="voice-empty">Cargando voces...</div>';
+    const lista = document.getElementById('vozLista');
     try {
       const r = await fetch('/api/voces');
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'No se pudieron cargar las voces');
-      vocesCatalogo = data.voces || [];
-      vocesCargadas = true;
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'No se pudieron cargar las voces');
+      voces = d.voces || [];
+      if (!vocesSeleccionadas.length && d.predeterminada && voces.some(v => v.id === d.predeterminada)) {
+        vocesSeleccionadas = [d.predeterminada];
+      }
       renderVoces();
     } catch (err) {
-      vocesCargadas = false;
-      lista.innerHTML = `<div class="voice-empty voice-error">${escapeHtml(err.message)}</div>`;
+      lista.innerHTML = '<div class="voz-estado">' + esc(err.message) + '</div>';
     }
   }
 
   function renderVoces() {
-    const q = document.getElementById('voiceSearch').value.trim().toLowerCase();
-    const lista = document.getElementById('voiceList');
-    if (!vocesCargadas) return;
-    const filtradas = vocesCatalogo.filter(v =>
-      !q || [v.nombre, v.categoria, v.genero, v.acento, v.descripcion].join(' ').toLowerCase().includes(q)
-    );
+    const lista = document.getElementById('vozLista');
+    const q = document.getElementById('vozBuscar').value.trim().toLowerCase();
+    const filtradas = voces.filter(v => !q || [v.nombre, v.genero, v.acento, v.categoria, v.descripcion].join(' ').toLowerCase().includes(q));
     if (!filtradas.length) {
-      lista.innerHTML = '<div class="voice-empty">No hay voces que coincidan</div>';
-      return;
+      lista.innerHTML = '<div class="voz-estado">' + (voces.length ? 'Sin resultados' : 'No hay voces disponibles') + '</div>';
+    } else {
+      lista.innerHTML = filtradas.map(v => {
+        const detalle = [v.genero, v.acento, v.categoria].filter(Boolean).join(' · ');
+        return '<div class="voz-item">' +
+          '<label><input type="checkbox" value="' + esc(v.id) + '" ' + (vocesSeleccionadas.includes(v.id) ? 'checked' : '') + ' onchange="alternarVoz(this.value, this.checked)">' +
+          '<span class="voz-texto"><div class="voz-nombre">' + esc(v.nombre) + '</div><div class="voz-detalle">' + esc(detalle) + '</div></span></label>' +
+          '<button class="btn-text" type="button" onclick="escucharVoz(\'' + esc(v.id) + '\')">Escuchar</button>' +
+          '</div>';
+      }).join('');
     }
-    lista.innerHTML = filtradas.map(v => {
-      const meta = [v.categoria, v.genero, v.acento].filter(Boolean).join(' · ');
-      const marcada = vocesSeleccionadas.includes(v.id) ? 'checked' : '';
-      const id = escapeHtml(v.id);
-      return `
-        <div class="voice-item">
-          <label class="voice-pick">
-            <input type="checkbox" ${marcada} onchange="alternarVoz('${id}', this.checked)" />
-            <span class="voice-info">
-              <span class="voice-name">${escapeHtml(v.nombre)}</span>
-              <span class="voice-meta">${escapeHtml(meta)}</span>
-            </span>
-          </label>
-          <button type="button" class="btn-ghost" onclick="escucharVoz('${id}', this)">Escuchar</button>
-        </div>`;
-    }).join('');
+    const n = vocesSeleccionadas.length;
+    document.getElementById('vozResumen').textContent = n === 0
+      ? 'Selecciona al menos una voz.'
+      : (n === 1 ? '1 voz seleccionada: se usará en todas las llamadas.' : n + ' voces seleccionadas: se alternan entre los contactos.');
   }
 
   function alternarVoz(id, marcada) {
-    vocesSeleccionadas = vocesSeleccionadas.filter(v => v !== id);
-    if (marcada) vocesSeleccionadas.push(id);
-    const nombres = vocesSeleccionadas.map(sel => {
-      const voz = vocesCatalogo.find(v => v.id === sel);
-      return voz ? voz.nombre : sel;
-    });
-    const resumen = document.getElementById('voiceSelected');
-    if (!nombres.length) resumen.textContent = 'Ninguna voz seleccionada';
-    else if (nombres.length === 1) resumen.textContent = `Voz seleccionada: ${nombres[0]}`;
-    else resumen.textContent = `${nombres.length} voces seleccionadas, se alternan entre los contactos: ${nombres.join(', ')}`;
+    vocesSeleccionadas = marcada ? [...new Set([...vocesSeleccionadas, id])] : vocesSeleccionadas.filter(v => v !== id);
+    renderVoces();
   }
 
-  async function escucharVoz(id, boton) {
-    const textoOriginal = boton.textContent;
-    boton.disabled = true;
-    boton.textContent = 'Generando...';
+  async function escucharVoz(id) {
     try {
-      if (audioMuestra) {
-        audioMuestra.pause();
-        audioMuestra = null;
-      }
+      const texto = document.getElementById('audioTexto').value.trim();
       const r = await fetch('/api/voces/muestra', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vozId: id, texto: document.getElementById('callsMsg').value.trim() })
+        body: JSON.stringify({ vozId: id, texto })
       });
       if (!r.ok) {
-        let mensaje = 'No se pudo generar la muestra';
-        try { mensaje = (await r.json()).error || mensaje; } catch {}
-        throw new Error(mensaje);
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || 'No se pudo generar la muestra');
       }
       const blob = await r.blob();
-      audioMuestra = new Audio(URL.createObjectURL(blob));
-      await audioMuestra.play();
+      if (vozSonando) vozSonando.pause();
+      vozSonando = new Audio(URL.createObjectURL(blob));
+      vozSonando.play();
     } catch (err) {
-      alert('Error: ' + err.message);
-    } finally {
-      boton.disabled = false;
-      boton.textContent = textoOriginal;
+      snack('Error: ' + err.message);
     }
   }
 
-  function toggleTextInput(tipo) {
-    const wrap = document.getElementById(`${tipo}TextWrap`);
-    wrap.style.display = wrap.style.display === 'none' ? '' : 'none';
-    actualizarPreview(tipo);
+  function switchTab(tab, el, isMobile) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    activeTab = tab;
+    if (isMobile) {
+      document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
+    } else {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    }
+    el.classList.add('active');
+    document.getElementById('fabExport').classList.toggle('visible', tab === 'resultados' && allResults.length > 0);
   }
 
-  function insertarNombre(fieldId) {
-    const el = document.getElementById(fieldId);
+  function toggleAudioType() {
+    const v = document.getElementById('audioType').value;
+    document.getElementById('generarWrap').style.display = v === 'generar' ? '' : 'none';
+    document.getElementById('mp3Wrap').style.display = v === 'mp3' ? '' : 'none';
+    document.getElementById('ttsWrap').style.display = v === 'tts' ? '' : 'none';
+  }
+
+  function insertarNombre(id) {
+    const el = document.getElementById(id);
     const pos = el.selectionStart;
-    const val = el.value;
-    el.value = val.slice(0, pos) + '{nombre}' + val.slice(pos);
+    el.value = el.value.slice(0, pos) + '{nombre}' + el.value.slice(pos);
     el.focus();
     el.setSelectionRange(pos + 8, pos + 8);
   }
 
-  function actualizarPreview(tipo) {
-    const preview = document.getElementById(`${tipo}Preview`);
-    const csvData = tipo === 'calls' ? csvCallsData : csvWaData;
-    if (csvData) {
-      preview.textContent = `${csvData.length} contactos cargados del CSV`;
-      preview.style.color = 'var(--green)';
-      return;
-    }
-    const textarea = document.getElementById(tipo === 'calls' ? 'callsNums' : 'waNums');
-    const nums = textarea ? textarea.value.trim().split(/[\n,;]+/).filter(l => l.trim()) : [];
-    if (nums.length > 0) {
-      preview.textContent = `${nums.length} número${nums.length > 1 ? 's' : ''} ingresado${nums.length > 1 ? 's' : ''}`;
-      preview.style.color = 'var(--text-muted)';
-    } else {
-      preview.textContent = '—';
-      preview.style.color = 'var(--text-dim)';
+  async function generarAudio() {
+    const texto = document.getElementById('audioTexto').value.trim();
+    if (!texto) return snack('Escribe el mensaje primero');
+    const btn = document.getElementById('btnGenerar');
+    btn.disabled = true;
+    btn.textContent = 'Generando...';
+    try {
+      const r = await fetch('/api/audio/generar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto, vozId: vocesSeleccionadas[0] || undefined })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error);
+      audioGenerado = data.url;
+      document.getElementById('audioPlayer').src = data.url;
+      document.getElementById('audioUrlLabel').textContent = data.url;
+      document.getElementById('audioPreview').classList.add('visible');
+      snack('Audio generado correctamente');
+    } catch (err) {
+      snack('Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '✨ Generar audio';
     }
   }
 
-  document.getElementById('callsNums').addEventListener('input', () => actualizarPreview('calls'));
-  document.getElementById('waNums').addEventListener('input', () => actualizarPreview('wa'));
+  function modoContacto(modo) {
+    document.getElementById('manualWrap').style.display = modo === 'manual' ? '' : 'none';
+    document.getElementById('csvWrap').style.display = modo === 'csv' ? '' : 'none';
+    document.getElementById('chipManual').classList.toggle('active', modo === 'manual');
+    document.getElementById('chipCsv').classList.toggle('active', modo === 'csv');
+    if (modo === 'manual') csvCallsFile = null;
+  }
 
-  function setupCsvDrop(dropId, inputId, tipo) {
+  function modoContactoWa(modo) {
+    document.getElementById('waManualWrap').style.display = modo === 'manual' ? '' : 'none';
+    document.getElementById('waCsvWrap').style.display = modo === 'csv' ? '' : 'none';
+    document.getElementById('waChipManual').classList.toggle('active', modo === 'manual');
+    document.getElementById('waChipCsv').classList.toggle('active', modo === 'csv');
+    if (modo === 'manual') csvWaFile = null;
+  }
+
+  function setupCsv(dropId, inputId, tipo) {
     const drop = document.getElementById(dropId);
     const input = document.getElementById(inputId);
-
     drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
-    drop.addEventListener('drop', e => {
-      e.preventDefault();
-      drop.classList.remove('over');
-      const file = e.dataTransfer.files[0];
-      if (file) processCsv(file, tipo, drop);
-    });
-
-    input.addEventListener('change', () => {
-      if (input.files[0]) processCsv(input.files[0], tipo, drop);
-    });
+    drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) processCsv(e.dataTransfer.files[0], tipo, drop); });
+    input.addEventListener('change', () => { if (input.files[0]) processCsv(input.files[0], tipo, drop); });
   }
 
-  function processCsv(file, tipo, dropEl) {
+  function processCsv(file, tipo, drop) {
     const reader = new FileReader();
     reader.onload = e => {
-      const text = e.target.result;
-      const lines = text.trim().split('\n').filter(l => l.trim());
+      const lines = e.target.result.trim().split('\n').filter(l => l.trim());
       const count = Math.max(0, lines.length - 1);
-      if (tipo === 'calls') csvCallsData = file;
-      else csvWaData = file;
-      dropEl.classList.add('loaded');
-      dropEl.innerHTML = `Archivo cargado: <strong>${file.name}</strong> (${count} contactos)`;
-      actualizarPreview(tipo);
+      if (tipo === 'calls') csvCallsFile = file;
+      else csvWaFile = file;
+      drop.classList.add('loaded');
+      drop.innerHTML = '<div class="csv-zone-icon">✅</div><div><strong>' + file.name + '</strong></div><div style="font-size:12px">' + count + ' contactos</div>';
     };
     reader.readAsText(file);
   }
 
-  setupCsvDrop('callsCsvDrop', 'callsCsvInput', 'calls');
-  setupCsvDrop('waCsvDrop', 'waCsvInput', 'wa');
+  setupCsv('callsCsvDrop', 'callsCsvInput', 'calls');
+  setupCsv('waCsvDrop', 'waCsvInput', 'wa');
 
-  function descargarCSVEjemplo() {
-    const contenido = `numero,nombre\n6141234567,Juan Pérez\n6149876543,María López\n6141112233,Carlos Hernández`;
-    const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+  function descargarEjemplo() {
+    const blob = new Blob(['numero,nombre\n6141234567,Juan Pérez\n6149876543,María López\n6141112233,Carlos Hernández'], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'contactos_ejemplo.csv';
@@ -877,37 +644,44 @@
   }
 
   async function lanzarCalls() {
-    const audioType = document.getElementById('callsAudioType').value;
-    const mensaje = document.getElementById('callsMsg').value.trim();
-    const audioUrl = document.getElementById('callsAudioUrl').value.trim();
+    const audioType = document.getElementById('audioType').value;
     const concurrencia = document.getElementById('callsConcurrency').value;
     const numerosText = document.getElementById('callsNums').value.trim();
+    const ttsTexto = document.getElementById('ttsTexto').value.trim();
+    const mp3Url = document.getElementById('mp3Url').value.trim();
 
-    if (!csvCallsData && !numerosText) return alert('Ingresa números o sube un CSV');
-    if ((audioType === 'tts' || audioType === 'eleven') && !mensaje) return alert('Escribe el mensaje de voz');
-    if (audioType === 'eleven' && !vocesSeleccionadas.length) return alert('Selecciona al menos una voz');
-    if (audioType === 'mp3' && !audioUrl) return alert('Ingresa la URL del MP3');
+    if (!csvCallsFile && !numerosText) return snack('Ingresa números o sube un CSV');
+    const textoVoz = document.getElementById('audioTexto').value.trim();
+    if (audioType === 'generar' && !textoVoz) return snack('Escribe el mensaje de voz');
+    if (audioType === 'generar' && !vocesSeleccionadas.length) return snack('Selecciona al menos una voz');
+    if (audioType === 'mp3' && !mp3Url) return snack('Ingresa la URL del MP3');
+    if (audioType === 'tts' && !ttsTexto) return snack('Escribe el mensaje de voz');
 
     const formData = new FormData();
-    if (csvCallsData) formData.append('csv', csvCallsData);
+    if (csvCallsFile) formData.append('csv', csvCallsFile);
     else formData.append('numeros', numerosText);
-    if (audioType === 'mp3') formData.append('audioUrl', audioUrl);
-    else formData.append('mensaje', mensaje);
-    if (audioType === 'eleven') formData.append('voces', JSON.stringify(vocesSeleccionadas));
+    if (audioType === 'generar') {
+      formData.append('mensaje', textoVoz);
+      formData.append('voces', JSON.stringify(vocesSeleccionadas));
+    }
+    else if (audioType === 'mp3') formData.append('audioUrl', mp3Url);
+    else formData.append('mensaje', ttsTexto);
     formData.append('concurrencia', concurrencia);
 
-    document.getElementById('callsBtn').disabled = true;
-    document.getElementById('callsBtn').textContent = 'Enviando...';
+    setLoading('calls', true);
     document.getElementById('callsProgress').classList.add('visible');
 
     try {
       const r = await fetch('/api/calls/bulk', { method: 'POST', body: formData });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Error desconocido');
+      if (!r.ok) throw new Error(data.error);
+      campaignActiva = data.campaignId;
+      snack('Campaña iniciada: ' + data.total + ' llamadas');
+      document.getElementById('liveTag').style.display = 'flex';
       iniciarPolling(data.campaignId, 'calls');
     } catch (err) {
-      alert('Error: ' + err.message);
-      resetBtn('calls');
+      snack('Error: ' + err.message);
+      setLoading('calls', false);
     }
   }
 
@@ -916,117 +690,173 @@
     const concurrencia = document.getElementById('waConcurrency').value;
     const numerosText = document.getElementById('waNums').value.trim();
 
-    if (!csvWaData && !numerosText) return alert('Ingresa números o sube un CSV');
-    if (!mensaje) return alert('Escribe el mensaje de WhatsApp');
+    if (!csvWaFile && !numerosText) return snack('Ingresa números o sube un CSV');
+    if (!mensaje) return snack('Escribe el mensaje');
 
     const formData = new FormData();
-    if (csvWaData) formData.append('csv', csvWaData);
+    if (csvWaFile) formData.append('csv', csvWaFile);
     else formData.append('numeros', numerosText);
     formData.append('mensaje', mensaje);
     formData.append('concurrencia', concurrencia);
 
-    document.getElementById('waBtn').disabled = true;
-    document.getElementById('waBtn').textContent = 'Enviando...';
+    setLoading('wa', true);
     document.getElementById('waProgress').classList.add('visible');
 
     try {
       const r = await fetch('/api/whatsapp/bulk', { method: 'POST', body: formData });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Error desconocido');
+      if (!r.ok) throw new Error(data.error);
+      snack('Campaña iniciada: ' + data.total + ' mensajes');
       iniciarPolling(data.campaignId, 'wa');
     } catch (err) {
-      alert('Error: ' + err.message);
-      resetBtn('wa');
+      snack('Error: ' + err.message);
+      setLoading('wa', false);
     }
+  }
+
+  function setLoading(tipo, loading) {
+    const btn = document.getElementById(tipo === 'calls' ? 'callsBtn' : 'waBtn');
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Enviando...' : (tipo === 'calls' ? '📞 Iniciar campaña de llamadas' : '💬 Iniciar campaña de WhatsApp');
   }
 
   function iniciarPolling(campaignId, tipo) {
     if (pollInterval) clearInterval(pollInterval);
-
-    document.getElementById('emptyLog').style.display = 'none';
-    document.getElementById('tableWrap').style.display = '';
-    document.getElementById('statsRow').style.display = '';
-    document.getElementById('statCampaign').textContent = tipo === 'calls' ? 'Llamadas' : 'WhatsApp';
-
     pollInterval = setInterval(async () => {
       try {
-        const r = await fetch(`/api/campaigns/${campaignId}`);
+        const r = await fetch('/api/campaigns/' + campaignId);
         const data = await r.json();
-
         const pct = data.progreso || 0;
-        document.getElementById(`${tipo}ProgressBar`).style.width = pct + '%';
-        document.getElementById(`${tipo}ProgressPct`).textContent = pct + '%';
-        const textoEl = document.getElementById(`${tipo}ProgressText`);
-        if (data.estado === 'detenida') {
-          textoEl.textContent = `Detenida: ${data.error} (${data.omitidos || 0} contactos sin procesar)`;
-          textoEl.style.color = 'var(--red)';
-        } else if (data.estado === 'generando_audios') {
-          textoEl.style.color = '';
-          textoEl.textContent = `Generando audios ${data.audiosListos || 0} de ${data.audiosTotal || 0}...`;
-        } else {
-          textoEl.style.color = '';
-          textoEl.textContent =
-            data.estado === 'completada' ? 'Completada' : `Procesando ${data.resultados?.length || 0} de ${data.total}...`;
+        if (data.estado === 'generando_audios') {
+          document.getElementById('callsProgressText').textContent = 'Generando audios ' + (data.audiosListos || 0) + ' de ' + (data.audiosTotal || 0) + '...';
         }
-
+        const barId = tipo === 'calls' ? 'callsBar' : 'waBar';
+        const pctId = tipo === 'calls' ? 'callsProgressPct' : 'waProgressPct';
+        const txtId = tipo === 'calls' ? 'callsProgressText' : 'waProgressText';
+        document.getElementById(barId).style.width = pct + '%';
+        document.getElementById(pctId).textContent = pct + '%';
+        if (data.estado !== 'generando_audios') document.getElementById(txtId).textContent = (data.resultados?.length || 0) + ' de ' + data.total;
         renderResultados(data.resultados || []);
-
-        if (data.estado === 'completada' || data.estado === 'detenida') {
+        if (data.estado === 'completada') {
           clearInterval(pollInterval);
-          resetBtn(tipo);
-          if (data.estado === 'detenida') verificarTwilio();
+          setLoading(tipo === 'calls' ? 'calls' : 'wa', false);
+          document.getElementById('liveTag').style.display = 'none';
+          snack('Campaña completada');
+        } else if (data.estado === 'detenida') {
+          clearInterval(pollInterval);
+          setLoading(tipo === 'calls' ? 'calls' : 'wa', false);
+          document.getElementById('liveTag').style.display = 'none';
+          document.getElementById(txtId).textContent = (data.resultados?.length || 0) + ' de ' + data.total + ' (detenida, omitidos: ' + (data.omitidos || 0) + ')';
+          mostrarBanner(data.error || 'La campaña se detuvo por un error.', 'error');
+          snack('Campaña detenida');
+          verificarTwilio();
         }
       } catch {}
-    }, 1200);
+    }, 1500);
+  }
+
+  function badgeClass(estado) {
+    const map = {
+      'iniciada': 'badge-iniciada',
+      'timbrando': 'badge-ringing',
+      'contestada': 'badge-answered',
+      'completada': 'badge-completada',
+      'no contestó': 'badge-no-contesto',
+      'no contesto': 'badge-no-contesto',
+      'ocupado': 'badge-ocupado',
+      'error': 'badge-error',
+      'fallida': 'badge-fallida',
+      'cancelada': 'badge-cancelada',
+      'enviado': 'badge-enviado',
+    };
+    return map[estado] || 'badge-iniciada';
+  }
+
+  function avatarEmoji(estado) {
+    const map = {
+      'completada': '✅',
+      'contestada': '📲',
+      'timbrando': '🔔',
+      'no contestó': '📵',
+      'ocupado': '🔴',
+      'error': '❌',
+      'fallida': '❌',
+      'cancelada': '⛔',
+      'iniciada': '📞',
+      'enviado': '✅',
+    };
+    return map[estado] || '📞';
+  }
+
+  function avatarBg(estado) {
+    if (['completada','enviado'].includes(estado)) return 'var(--md-success-container)';
+    if (['contestada'].includes(estado)) return 'var(--md-primary-container)';
+    if (['timbrando'].includes(estado)) return 'var(--md-info-container)';
+    if (['no contestó','ocupado'].includes(estado)) return 'var(--md-warning-container)';
+    if (['error','fallida'].includes(estado)) return 'var(--md-error-container)';
+    return 'var(--md-surface-2)';
   }
 
   function renderResultados(resultados) {
     allResults = resultados;
-    const tbody = document.getElementById('resultsBody');
-    const ok = resultados.filter(r => r.estado !== 'error').length;
-    const err = resultados.filter(r => r.estado === 'error').length;
+    const contestadas = resultados.filter(r => ['completada','contestada'].includes(r.estado)).length;
+    const noContesto = resultados.filter(r => ['no contestó','ocupado','cancelada'].includes(r.estado)).length;
+    const errores = resultados.filter(r => ['error','fallida'].includes(r.estado)).length;
 
     document.getElementById('statTotal').textContent = resultados.length;
-    document.getElementById('statOk').textContent = ok;
-    document.getElementById('statErr').textContent = err;
+    document.getElementById('statContestadas').textContent = contestadas;
+    document.getElementById('statNoContesto').textContent = noContesto;
+    document.getElementById('statError').textContent = errores;
 
-    tbody.innerHTML = resultados.map((r, i) => `
-      <tr>
-        <td style="color:var(--text-dim)">${i + 1}</td>
-        <td class="td-mono">${r.numero}</td>
-        <td>${r.nombre ? escapeHtml(r.nombre) : '<span style="color:var(--text-dim)">—</span>'}</td>
-        <td>${r.voz ? escapeHtml(r.voz) : '<span style="color:var(--text-dim)">—</span>'}</td>
-        <td><span class="badge ${r.estado}">${r.estado}</span></td>
-        <td class="td-mono">${r.sid || (r.error ? `<span style="color:var(--red);font-size:11px;">${escapeHtml(r.error.slice(0,60))}</span>` : '—')}</td>
-      </tr>
+    const hayDatos = resultados.length > 0;
+    document.getElementById('statsGrid').style.display = hayDatos ? '' : 'none';
+    document.getElementById('legendBar').style.display = hayDatos ? '' : 'none';
+    document.getElementById('emptyState').style.display = hayDatos ? 'none' : '';
+
+    document.getElementById('resultsList').innerHTML = resultados.map(r => `
+      <div class="result-item">
+        <div class="result-avatar" style="background:${avatarBg(r.estado)}">${avatarEmoji(r.estado)}</div>
+        <div class="result-info">
+          <div class="result-num">${esc(r.numero)}${r.duracion > 0 ? '<span class="duracion-chip">⏱ ' + r.duracion + 's</span>' : ''}</div>
+          ${r.nombre ? '<div class="result-name">' + esc(r.nombre) + '</div>' : ''}
+          ${r.voz ? '<div class="result-name">Voz: ' + esc(r.voz) + '</div>' : ''}
+          <div class="result-meta">${esc(r.sid || r.error || '')}</div>
+        </div>
+        <div class="call-badge ${badgeClass(r.estado)}">${esc(r.estado)}</div>
+      </div>
     `).join('');
-  }
 
-  function resetBtn(tipo) {
-    const btn = document.getElementById(`${tipo}Btn`);
-    btn.disabled = false;
-    btn.textContent = tipo === 'calls' ? 'Iniciar campaña de llamadas' : 'Iniciar campaña de WhatsApp';
+    if (activeTab === 'resultados' && hayDatos) document.getElementById('fabExport').classList.add('visible');
   }
 
   function limpiarLog() {
     allResults = [];
-    document.getElementById('resultsBody').innerHTML = '';
-    document.getElementById('emptyLog').style.display = '';
-    document.getElementById('tableWrap').style.display = 'none';
-    document.getElementById('statsRow').style.display = 'none';
+    renderResultados([]);
+    document.getElementById('fabExport').classList.remove('visible');
   }
 
   function exportarCSV() {
-    if (!allResults.length) return alert('No hay resultados para exportar');
-    const header = 'numero,nombre,voz,estado,sid,error';
+    if (!allResults.length) return;
+    const header = 'numero,nombre,voz,estado,estadoLlamada,duracion,sid,error';
+    const celda = v => '"' + String(v === undefined || v === null ? '' : v).replace(/"/g, '""') + '"';
     const rows = allResults.map(r =>
-      `${r.numero},${r.nombre || ''},${r.voz || ''},${r.estado},${r.sid || ''},${r.error || ''}`
+      [r.numero, r.nombre, r.voz, r.estado, r.estadoLlamada, r.duracion || 0, r.sid, r.error].map(celda).join(',')
     );
     const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `resultados_${Date.now()}.csv`;
+    a.download = 'resultados_' + Date.now() + '.csv';
     a.click();
+  }
+
+  verificarTwilio();
+  cargarVoces();
+
+  function snack(msg) {
+    const s = document.getElementById('snackbar');
+    s.textContent = msg;
+    s.classList.add('show');
+    setTimeout(() => s.classList.remove('show'), 3000);
   }
 </script>
 </body>
