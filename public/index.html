@@ -178,6 +178,45 @@
 
     .hint { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
 
+    .voice-list {
+      margin-top: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+    }
+
+    .voice-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .voice-item:last-child { border-bottom: none; }
+
+    .voice-pick {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      cursor: pointer;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .voice-info { display: flex; flex-direction: column; min-width: 0; }
+    .voice-name { color: var(--text); font-weight: 500; }
+    .voice-meta { color: var(--text-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .voice-empty { padding: 16px; font-size: 12px; color: var(--text-muted); text-align: center; }
+    .voice-error { color: var(--red); }
+
     .nums-area { position: relative; }
 
     .nums-actions {
@@ -390,6 +429,10 @@
   </div>
 </header>
 
+<div id="twilioBanner" style="display:none; background:var(--red-dim); color:var(--red); border-bottom:1px solid var(--red); padding:12px 24px; font-size:13px; font-weight:600;">
+  La cuenta de Twilio no está activa o rechazó las credenciales. No se podrán hacer llamadas ni enviar mensajes hasta resolverlo. Revisa el estado de la cuenta y el saldo en console.twilio.com y confirma que el Auth Token del archivo .env sea el vigente.
+</div>
+
 <main>
 
   <!-- LLAMADAS -->
@@ -424,6 +467,7 @@
         <label>Tipo de audio</label>
         <select id="callsAudioType" onchange="toggleAudioType()">
           <option value="tts">Texto a voz (TTS automático)</option>
+          <option value="eleven">Voces de ElevenLabs (una o varias)</option>
           <option value="mp3">Archivo MP3 (URL pública)</option>
         </select>
       </div>
@@ -432,7 +476,15 @@
         <label>Mensaje de voz</label>
         <span class="msg-placeholder-hint" onclick="insertarNombre('callsMsg')">+ {nombre}</span>
         <textarea id="callsMsg" placeholder="Hola {nombre}, le informamos que su cita es mañana a las 10 AM. Gracias."></textarea>
-        <div class="hint">Usa {nombre} para personalizar por contacto. Voz: Mia (español México).</div>
+        <div class="hint">Usa {nombre} para personalizar por contacto. <span id="callsVoiceNote">Voz: Mia (español México).</span></div>
+      </div>
+
+      <div id="callsElevenWrap" style="display:none;">
+        <label>Voces de ElevenLabs</label>
+        <input type="text" id="voiceSearch" placeholder="Buscar por nombre, acento o tipo de voz" oninput="renderVoces()" />
+        <div id="voiceList" class="voice-list"></div>
+        <div class="hint">Marca una voz para todas las llamadas, o varias para alternarlas entre los contactos. Usa Escuchar para probar la voz con tu mensaje.</div>
+        <div class="hint" id="voiceSelected">Ninguna voz seleccionada</div>
       </div>
 
       <div id="callsMp3Wrap" style="display:none;">
@@ -577,6 +629,7 @@
             <th>#</th>
             <th>Número</th>
             <th>Nombre</th>
+            <th>Voz</th>
             <th>Estado</th>
             <th>SID Twilio</th>
           </tr>
@@ -604,10 +657,141 @@
 
   fetchConfig();
 
+  async function verificarTwilio() {
+    try {
+      const r = await fetch('/api/twilio/status');
+      const data = await r.json();
+      const dot = document.getElementById('statusDot');
+      const texto = document.getElementById('statusText');
+      const banner = document.getElementById('twilioBanner');
+      if (data.ok) {
+        banner.style.display = 'none';
+        dot.style.background = '';
+        dot.style.boxShadow = '';
+        texto.textContent = 'Conectado';
+      } else if (data.estado === 'error' && !data.rechazada) {
+        banner.style.display = 'none';
+        dot.style.background = 'var(--yellow)';
+        dot.style.boxShadow = '0 0 6px var(--yellow)';
+        texto.textContent = 'Sin conexión con Twilio';
+      } else {
+        banner.style.display = '';
+        dot.style.background = 'var(--red)';
+        dot.style.boxShadow = '0 0 6px var(--red)';
+        texto.textContent = 'Cuenta de Twilio con problema';
+      }
+    } catch {}
+  }
+
+  verificarTwilio();
+
+  let vocesCatalogo = [];
+  let vocesSeleccionadas = [];
+  let vocesCargadas = false;
+  let audioMuestra = null;
+
+  function escapeHtml(valor) {
+    const mapa = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(valor === null || valor === undefined ? '' : valor).replace(/[&<>"']/g, c => mapa[c]);
+  }
+
   function toggleAudioType() {
     const v = document.getElementById('callsAudioType').value;
-    document.getElementById('callsTtsWrap').style.display = v === 'tts' ? '' : 'none';
+    document.getElementById('callsTtsWrap').style.display = (v === 'tts' || v === 'eleven') ? '' : 'none';
     document.getElementById('callsMp3Wrap').style.display = v === 'mp3' ? '' : 'none';
+    document.getElementById('callsElevenWrap').style.display = v === 'eleven' ? '' : 'none';
+    document.getElementById('callsVoiceNote').textContent = v === 'eleven'
+      ? 'Cada mensaje distinto genera un audio y consume créditos de ElevenLabs.'
+      : 'Voz: Mia (español México).';
+    if (v === 'eleven' && !vocesCargadas) cargarVoces();
+  }
+
+  async function cargarVoces() {
+    const lista = document.getElementById('voiceList');
+    lista.innerHTML = '<div class="voice-empty">Cargando voces...</div>';
+    try {
+      const r = await fetch('/api/voces');
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'No se pudieron cargar las voces');
+      vocesCatalogo = data.voces || [];
+      vocesCargadas = true;
+      renderVoces();
+    } catch (err) {
+      vocesCargadas = false;
+      lista.innerHTML = `<div class="voice-empty voice-error">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function renderVoces() {
+    const q = document.getElementById('voiceSearch').value.trim().toLowerCase();
+    const lista = document.getElementById('voiceList');
+    if (!vocesCargadas) return;
+    const filtradas = vocesCatalogo.filter(v =>
+      !q || [v.nombre, v.categoria, v.genero, v.acento, v.descripcion].join(' ').toLowerCase().includes(q)
+    );
+    if (!filtradas.length) {
+      lista.innerHTML = '<div class="voice-empty">No hay voces que coincidan</div>';
+      return;
+    }
+    lista.innerHTML = filtradas.map(v => {
+      const meta = [v.categoria, v.genero, v.acento].filter(Boolean).join(' · ');
+      const marcada = vocesSeleccionadas.includes(v.id) ? 'checked' : '';
+      const id = escapeHtml(v.id);
+      return `
+        <div class="voice-item">
+          <label class="voice-pick">
+            <input type="checkbox" ${marcada} onchange="alternarVoz('${id}', this.checked)" />
+            <span class="voice-info">
+              <span class="voice-name">${escapeHtml(v.nombre)}</span>
+              <span class="voice-meta">${escapeHtml(meta)}</span>
+            </span>
+          </label>
+          <button type="button" class="btn-ghost" onclick="escucharVoz('${id}', this)">Escuchar</button>
+        </div>`;
+    }).join('');
+  }
+
+  function alternarVoz(id, marcada) {
+    vocesSeleccionadas = vocesSeleccionadas.filter(v => v !== id);
+    if (marcada) vocesSeleccionadas.push(id);
+    const nombres = vocesSeleccionadas.map(sel => {
+      const voz = vocesCatalogo.find(v => v.id === sel);
+      return voz ? voz.nombre : sel;
+    });
+    const resumen = document.getElementById('voiceSelected');
+    if (!nombres.length) resumen.textContent = 'Ninguna voz seleccionada';
+    else if (nombres.length === 1) resumen.textContent = `Voz seleccionada: ${nombres[0]}`;
+    else resumen.textContent = `${nombres.length} voces seleccionadas, se alternan entre los contactos: ${nombres.join(', ')}`;
+  }
+
+  async function escucharVoz(id, boton) {
+    const textoOriginal = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = 'Generando...';
+    try {
+      if (audioMuestra) {
+        audioMuestra.pause();
+        audioMuestra = null;
+      }
+      const r = await fetch('/api/voces/muestra', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vozId: id, texto: document.getElementById('callsMsg').value.trim() })
+      });
+      if (!r.ok) {
+        let mensaje = 'No se pudo generar la muestra';
+        try { mensaje = (await r.json()).error || mensaje; } catch {}
+        throw new Error(mensaje);
+      }
+      const blob = await r.blob();
+      audioMuestra = new Audio(URL.createObjectURL(blob));
+      await audioMuestra.play();
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      boton.disabled = false;
+      boton.textContent = textoOriginal;
+    }
   }
 
   function toggleTextInput(tipo) {
@@ -700,14 +884,16 @@
     const numerosText = document.getElementById('callsNums').value.trim();
 
     if (!csvCallsData && !numerosText) return alert('Ingresa números o sube un CSV');
-    if (audioType === 'tts' && !mensaje) return alert('Escribe el mensaje de voz');
+    if ((audioType === 'tts' || audioType === 'eleven') && !mensaje) return alert('Escribe el mensaje de voz');
+    if (audioType === 'eleven' && !vocesSeleccionadas.length) return alert('Selecciona al menos una voz');
     if (audioType === 'mp3' && !audioUrl) return alert('Ingresa la URL del MP3');
 
     const formData = new FormData();
     if (csvCallsData) formData.append('csv', csvCallsData);
     else formData.append('numeros', numerosText);
-    if (audioType === 'tts') formData.append('mensaje', mensaje);
-    else formData.append('audioUrl', audioUrl);
+    if (audioType === 'mp3') formData.append('audioUrl', audioUrl);
+    else formData.append('mensaje', mensaje);
+    if (audioType === 'eleven') formData.append('voces', JSON.stringify(vocesSeleccionadas));
     formData.append('concurrencia', concurrencia);
 
     document.getElementById('callsBtn').disabled = true;
@@ -770,14 +956,25 @@
         const pct = data.progreso || 0;
         document.getElementById(`${tipo}ProgressBar`).style.width = pct + '%';
         document.getElementById(`${tipo}ProgressPct`).textContent = pct + '%';
-        document.getElementById(`${tipo}ProgressText`).textContent =
-          data.estado === 'completada' ? 'Completada' : `Procesando ${data.resultados?.length || 0} de ${data.total}...`;
+        const textoEl = document.getElementById(`${tipo}ProgressText`);
+        if (data.estado === 'detenida') {
+          textoEl.textContent = `Detenida: ${data.error} (${data.omitidos || 0} contactos sin procesar)`;
+          textoEl.style.color = 'var(--red)';
+        } else if (data.estado === 'generando_audios') {
+          textoEl.style.color = '';
+          textoEl.textContent = `Generando audios ${data.audiosListos || 0} de ${data.audiosTotal || 0}...`;
+        } else {
+          textoEl.style.color = '';
+          textoEl.textContent =
+            data.estado === 'completada' ? 'Completada' : `Procesando ${data.resultados?.length || 0} de ${data.total}...`;
+        }
 
         renderResultados(data.resultados || []);
 
-        if (data.estado === 'completada') {
+        if (data.estado === 'completada' || data.estado === 'detenida') {
           clearInterval(pollInterval);
           resetBtn(tipo);
+          if (data.estado === 'detenida') verificarTwilio();
         }
       } catch {}
     }, 1200);
@@ -797,9 +994,10 @@
       <tr>
         <td style="color:var(--text-dim)">${i + 1}</td>
         <td class="td-mono">${r.numero}</td>
-        <td>${r.nombre || '<span style="color:var(--text-dim)">—</span>'}</td>
+        <td>${r.nombre ? escapeHtml(r.nombre) : '<span style="color:var(--text-dim)">—</span>'}</td>
+        <td>${r.voz ? escapeHtml(r.voz) : '<span style="color:var(--text-dim)">—</span>'}</td>
         <td><span class="badge ${r.estado}">${r.estado}</span></td>
-        <td class="td-mono">${r.sid || (r.error ? `<span style="color:var(--red);font-size:11px;">${r.error.slice(0,60)}</span>` : '—')}</td>
+        <td class="td-mono">${r.sid || (r.error ? `<span style="color:var(--red);font-size:11px;">${escapeHtml(r.error.slice(0,60))}</span>` : '—')}</td>
       </tr>
     `).join('');
   }
@@ -820,9 +1018,9 @@
 
   function exportarCSV() {
     if (!allResults.length) return alert('No hay resultados para exportar');
-    const header = 'numero,nombre,estado,sid,error';
+    const header = 'numero,nombre,voz,estado,sid,error';
     const rows = allResults.map(r =>
-      `${r.numero},${r.nombre || ''},${r.estado},${r.sid || ''},${r.error || ''}`
+      `${r.numero},${r.nombre || ''},${r.voz || ''},${r.estado},${r.sid || ''},${r.error || ''}`
     );
     const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
