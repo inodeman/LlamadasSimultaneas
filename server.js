@@ -1,551 +1,208 @@
-require("dotenv").config();
+"use strict";
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
 const express = require("express");
 const twilio = require("twilio");
-const path = require("path");
-const multer = require("multer");
-const { parse } = require("csv-parse/sync");
-const fs = require("fs");
-const { crearServicioVoces, ID_VOZ } = require("./elevenlabs");
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const configBase = require("./lib/config");
+const { crearServicioVoces } = require("./elevenlabs");
+const { Almacen } = require("./lib/almacen");
+const { Eventos } = require("./lib/eventos");
+const { Gestor } = require("./lib/gestor");
+const { Datos } = require("./lib/twilio-datos");
+const motor = require("./lib/motor");
+const { manejarError } = require("./lib/http");
+const rutasCampanas = require("./lib/rutas-campanas");
+const rutasSistema = require("./lib/rutas-sistema");
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-const whatsappFrom = process.env.TWILIO_WHATSAPP_NUMBER || "whatsapp:+14155238886";
-const publicBaseUrl = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
-const defaultCountryCode = process.env.DEFAULT_COUNTRY_CODE || "52";
-const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
-const elevenLabsVoice = process.env.ELEVENLABS_VOICE_ID || "m7yTemJqdIqrcNleANfX";
-
-const client = twilio(accountSid, authToken);
-const upload = multer({ storage: multer.memoryStorage() });
-
-const servicioVoces = crearServicioVoces({
-  apiKey: elevenLabsKey,
-  baseUrl: process.env.ELEVENLABS_BASE_URL,
-  modelId: process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2",
-  formato: process.env.ELEVENLABS_OUTPUT_FORMAT,
-  concurrencia: process.env.ELEVENLABS_CONCURRENCY,
-  ajustesVoz: { stability: 0.3, similarity_boost: 0.75, style: 0.4, use_speaker_boost: true },
-  directorio: path.join(__dirname, "public", "audio", "generado"),
-  publicBaseUrl,
-});
-
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
-
-const campaigns = new Map();
-const sidToCampaign = new Map();
-
-function normalizarNumero(raw) {
-  let num = String(raw).trim().replace(/\s+/g, "").replace(/-/g, "");
-  if (num.startsWith("+")) return num;
-  if (num.startsWith("00")) return "+" + num.slice(2);
-  if (num.length === 10) return `+${defaultCountryCode}${num}`;
-  if (num.length === 12 && num.startsWith(defaultCountryCode)) return `+${num}`;
-  return `+${num}`;
+function crearClienteTwilio(tw) {
+  if (!/^AC[0-9A-Za-z]{30,40}$/.test(String(tw.accountSid || "")) || !tw.authToken) return null;
+  try {
+    return twilio(tw.accountSid, tw.authToken, { timeout: 20000 });
+  } catch (err) {
+    console.error(`No se pudo crear el cliente de Twilio: ${err.message}`);
+    return null;
+  }
 }
 
-function parsearContactos(texto, csvBuffer) {
-  if (csvBuffer) {
-    const rows = parse(csvBuffer, { columns: true, skip_empty_lines: true, trim: true });
-    return rows.map((r) => ({
-      numero: normalizarNumero(r.numero || r.phone || r.telefono || r.number || Object.values(r)[0]),
-      nombre: r.nombre || r.name || r.nombre_completo || "",
-    }));
-  }
-  return texto
-    .split(/[\n,;]+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const parts = line.split(/\t|  +/);
-      return { numero: normalizarNumero(parts[0]), nombre: parts[1] ? parts[1].trim() : "" };
+function cabecerasSeguridad(req, res, next) {
+  res.set({
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "same-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; media-src 'self' blob: https:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+  });
+  next();
+}
+
+function crearAutenticacion(cfg) {
+  if (!cfg.seguridad.activa) return (req, res, next) => next();
+  const esperado = Buffer.from(`${cfg.seguridad.usuario}:${cfg.seguridad.clave}`);
+  const intentos = new Map();
+  return (req, res, next) => {
+    const ruta = req.path;
+    if (ruta === "/api/salud" || ruta.startsWith("/api/webhooks/") || ruta.startsWith("/audio/")) return next();
+    const ip = req.ip || "";
+    const registro = intentos.get(ip);
+    if (registro && registro.cuenta >= 10 && Date.now() - registro.ultimo < 5 * 60 * 1000) {
+      res.status(429).send("Demasiados intentos. Espera unos minutos.");
+      return undefined;
+    }
+    const encabezado = req.headers.authorization || "";
+    const m = /^Basic (.+)$/i.exec(encabezado);
+    if (m) {
+      const dado = Buffer.from(m[1], "base64");
+      if (dado.length === esperado.length && crypto.timingSafeEqual(dado, esperado)) {
+        intentos.delete(ip);
+        return next();
+      }
+      intentos.set(ip, { cuenta: (registro ? registro.cuenta : 0) + 1, ultimo: Date.now() });
+    }
+    res.set("WWW-Authenticate", 'Basic realm="Llamadas Simultaneas", charset="UTF-8"').status(401).send("Acceso restringido");
+    return undefined;
+  };
+}
+
+function limpiar(g, cfg) {
+  try {
+    const inactivas = [...g.campanas.values()].filter((c) => !g.estaActiva(c)).sort((a, b) => String(a.creada).localeCompare(String(b.creada)));
+    const exceso = g.campanas.size - cfg.limites.maxCampanasGuardadas;
+    if (exceso > 0) {
+      inactivas.slice(0, exceso).forEach((c) => {
+        g.campanas.delete(c.id);
+        g.rt.delete(c.id);
+        c.resultados.forEach((r) => { if (r.sid) g.sidIndex.delete(r.sid); });
+        g.almacen.eliminar(c.id);
+        console.log(`Campaña antigua eliminada: ${c.id}`);
+      });
+    }
+    const protegidos = new Set();
+    for (const c of g.campanas.values()) {
+      Object.keys(c.audios || {}).forEach((clave) => protegidos.add(`${clave}.mp3`));
+      c.resultados.forEach((r) => { if (r.audioClave) protegidos.add(`${r.audioClave}.mp3`); });
+    }
+    const limite = Date.now() - cfg.limites.retencionAudiosDias * 86400000;
+    let borrados = 0;
+    fs.readdirSync(cfg.dirAudioGenerado).forEach((archivo) => {
+      if (!archivo.endsWith(".mp3") || protegidos.has(archivo)) return;
+      const ruta = path.join(cfg.dirAudioGenerado, archivo);
+      try {
+        if (fs.statSync(ruta).mtimeMs < limite) { fs.unlinkSync(ruta); borrados += 1; }
+      } catch (err) { }
     });
-}
-
-function construirMensaje(template, nombre) {
-  return template.replace(/\{nombre\}/gi, nombre || "").trim();
-}
-
-function escaparXml(texto) {
-  return String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function esErrorFatalDeTwilio(err) {
-  if (!err) return false;
-  if (err.status === 401) return true;
-  if (err.code === 20003 || err.code === 20005 || err.code === 10001) return true;
-  return String(err.message || "").toLowerCase().includes("authentication failed");
-}
-
-function detenerCampana(campaign, err) {
-  if (!campaign || campaign.estado === "detenida") return;
-  campaign.estado = "detenida";
-  campaign.error = "Twilio rechazó la autenticación de la cuenta. Revisa en console.twilio.com que la cuenta esté activa y con saldo, y que el Auth Token del archivo .env sea el vigente.";
-  campaign.detalle = err.message;
-  console.error(`Campaña ${campaign.id} detenida: ${err.message}`);
-}
-
-function parsearVoces(valor) {
-  if (!valor) return [];
-  let lista = valor;
-  if (typeof valor === "string") {
-    try {
-      lista = JSON.parse(valor);
-    } catch (e) {
-      lista = valor.split(",");
-    }
-  }
-  if (!Array.isArray(lista)) lista = [lista];
-  const limpias = lista.map((v) => String(v).trim()).filter((v) => ID_VOZ.test(v));
-  return [...new Set(limpias)].slice(0, 20);
-}
-
-function detenerPorVoces(campaign, totalContactos, err) {
-  if (!campaign) return;
-  campaign.estado = "detenida";
-  campaign.error = err.message;
-  campaign.omitidos = totalContactos;
-  console.error(`Campaña ${campaign.id} detenida por ElevenLabs: ${err.message}`);
-}
-
-async function prepararAudiosDeVoces(contactos, mensajeTemplate, voces, campaign) {
-  const nombres = await servicioVoces.mapaDeNombres();
-  const tareas = new Map();
-
-  contactos.forEach((contacto, i) => {
-    const vozId = voces[i % voces.length];
-    const texto = construirMensaje(mensajeTemplate, contacto.nombre);
-    contacto.voz = nombres[vozId] || vozId;
-    contacto.claveAudio = `${vozId}|${texto}`;
-    if (texto && !tareas.has(contacto.claveAudio)) {
-      tareas.set(contacto.claveAudio, { clave: contacto.claveAudio, vozId, texto });
-    }
-  });
-
-  if (campaign) {
-    campaign.estado = "generando_audios";
-    campaign.audiosTotal = tareas.size;
-    campaign.audiosListos = 0;
-  }
-
-  const generacion = await servicioVoces.generarVarios([...tareas.values()], (listos) => {
-    if (campaign) campaign.audiosListos = listos;
-  });
-
-  if (campaign && !generacion.errorFatal) campaign.estado = "en_progreso";
-  return generacion;
-}
-
-const esperaFinLlamadaMs = process.env.ESPERA_FIN_LLAMADA_MS !== undefined ? parseInt(process.env.ESPERA_FIN_LLAMADA_MS) || 0 : 300000;
-
-function esperar(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function esperarFinDeLlamada(resultado, campaign) {
-  const limite = Date.now() + esperaFinLlamadaMs;
-  while (Date.now() < limite) {
-    if ((resultado.rangoLlamada || 0) >= 4) return;
-    if (campaign && campaign.detener) return;
-    await esperar(1000);
-  }
-}
-
-async function ejecutarCampana(contactos, mensajeTemplate, audioUrl, concurrencia, campaignId, tipo, voces = []) {
-  const campaign = campaigns.get(campaignId);
-  const resultados = [];
-  let audios = null;
-
-  if (tipo === "llamadas" && voces.length) {
-    try {
-      const generacion = await prepararAudiosDeVoces(contactos, mensajeTemplate, voces, campaign);
-      if (generacion.errorFatal) {
-        detenerPorVoces(campaign, contactos.length, generacion.errorFatal);
-        return resultados;
-      }
-      audios = generacion.resultados;
-    } catch (err) {
-      detenerPorVoces(campaign, contactos.length, err);
-      return resultados;
-    }
-  }
-
-  async function procesarContacto(contacto) {
-    const { numero, nombre } = contacto;
-    const extra = contacto.voz ? { voz: contacto.voz } : {};
-    const mensaje = construirMensaje(mensajeTemplate, nombre);
-    try {
-      let res;
-      if (tipo === "llamadas") {
-        let twiml;
-        if (audios) {
-          const audio = audios.get(contacto.claveAudio);
-          if (!audio || !audio.ok) {
-            const fallo = { numero, nombre, ...extra, sid: null, estado: "error", estadoLlamada: "error", error: audio ? audio.error : "El mensaje está vacío.", ts: Date.now() };
-            if (campaign) campaign.resultados.push(fallo);
-            return fallo;
-          }
-          twiml = `<Response><Play>${escaparXml(audio.url)}</Play></Response>`;
-        } else if (audioUrl) {
-          twiml = `<Response><Play>${escaparXml(audioUrl)}</Play></Response>`;
-        } else {
-          twiml = `<Response><Say language="es-MX" voice="Polly.Mia">${escaparXml(mensaje)}</Say></Response>`;
-        }
-        const call = await client.calls.create({
-          to: numero,
-          from: fromNumber,
-          twiml,
-          statusCallback: `${publicBaseUrl}/api/webhooks/call-status`,
-          statusCallbackMethod: "POST",
-          statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-        });
-        res = { numero, nombre, ...extra, sid: call.sid, estado: "iniciada", estadoLlamada: "initiated", error: null, ts: Date.now() };
-        sidToCampaign.set(call.sid, campaignId);
-      } else {
-        const msg = await client.messages.create({
-          from: whatsappFrom,
-          to: `whatsapp:${numero}`,
-          body: mensaje,
-          statusCallback: `${publicBaseUrl}/api/webhooks/message-status`,
-        });
-        res = { numero, nombre, sid: msg.sid, estado: "enviado", estadoLlamada: null, error: null, ts: Date.now() };
-      }
-      if (campaign) campaign.resultados.push(res);
-      return res;
-    } catch (err) {
-      if (esErrorFatalDeTwilio(err)) detenerCampana(campaign, err);
-      const res = { numero, nombre, ...extra, sid: null, estado: "error", estadoLlamada: "error", error: err.message, ts: Date.now() };
-      if (campaign) campaign.resultados.push(res);
-      return res;
-    }
-  }
-
-  const limite = Math.max(1, parseInt(concurrencia) || 1);
-  let siguiente = 0;
-  let terminados = 0;
-
-  async function trabajador() {
-    while (true) {
-      if (campaign && (campaign.estado === "detenida" || campaign.detener)) return;
-      const indice = siguiente;
-      siguiente += 1;
-      if (indice >= contactos.length) return;
-
-      const res = await procesarContacto(contactos[indice]);
-      resultados.push(res);
-      if (tipo === "llamadas" && res.sid) await esperarFinDeLlamada(res, campaign);
-
-      terminados += 1;
-      if (campaign) campaign.progreso = Math.min(100, Math.round((terminados / contactos.length) * 100));
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(limite, contactos.length) }, trabajador));
-
-  if (campaign && campaign.estado === "detenida") {
-    campaign.omitidos = contactos.length - resultados.length;
-  } else if (campaign) {
-    campaign.estado = "completada";
-  }
-  return resultados;
-}
-
-async function verificarCuentaTwilio() {
-  try {
-    const cuenta = await client.api.v2010.accounts(accountSid).fetch();
-    console.log(`Cuenta Twilio: ${cuenta.status} (${cuenta.type})`);
-    if (cuenta.status !== "active") {
-      console.error(`ATENCIÓN: la cuenta de Twilio está en estado "${cuenta.status}" y no podrá hacer llamadas.`);
-    }
-    return { ok: cuenta.status === "active", estado: cuenta.status, tipo: cuenta.type };
+    if (borrados) console.log(`Audios antiguos eliminados: ${borrados}`);
   } catch (err) {
-    const rechazada = esErrorFatalDeTwilio(err);
-    if (rechazada) {
-      console.error(`ATENCIÓN: Twilio rechazó la autenticación: ${err.message}`);
-    } else {
-      console.error(`ATENCIÓN: no se pudo verificar la cuenta de Twilio: ${err.message}`);
-    }
-    return { ok: false, estado: "error", rechazada, http: err.status || null, codigo: err.code || null };
+    console.error(`Limpieza periódica: ${err.message}`);
   }
 }
 
-function responderErrorVoces(res, err) {
-  const status = err && err.codigo === "sin_clave" ? 503 : 502;
-  res.status(status).json({ error: err && err.message ? err.message : "Error al consultar ElevenLabs" });
-}
+function crearApp({ g, cfg, eventos, inicio }) {
+  const app = express();
+  app.disable("x-powered-by");
+  app.set("trust proxy", 1);
+  app.use(cabecerasSeguridad);
 
-app.post("/api/audio/generar", async (req, res) => {
-  try {
-    const { texto, vozId } = req.body;
-    if (!texto) return res.status(400).json({ error: "Se requiere texto" });
-    if (!elevenLabsKey) return res.status(500).json({ error: "ELEVENLABS_API_KEY no configurada" });
-    if (vozId && !ID_VOZ.test(String(vozId))) return res.status(400).json({ error: "Voz no válida" });
-
-    const audio = await servicioVoces.generarAudio(vozId ? String(vozId) : elevenLabsVoice, texto);
-    res.json({ url: audio.url, archivo: path.basename(audio.archivo) });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/voces", async (req, res) => {
-  try {
-    const voces = await servicioVoces.listarVoces();
-    res.json({ voces, predeterminada: elevenLabsVoice });
-  } catch (err) {
-    responderErrorVoces(res, err);
-  }
-});
-
-let muestras = { inicio: Date.now(), total: 0 };
-
-app.post("/api/voces/muestra", async (req, res) => {
-  const ahora = Date.now();
-  if (ahora - muestras.inicio > 60000) muestras = { inicio: ahora, total: 0 };
-  muestras.total += 1;
-  if (muestras.total > 20) return res.status(429).json({ error: "Demasiadas muestras seguidas. Espera un minuto." });
-
-  const vozId = String((req.body && req.body.vozId) || "").trim();
-  if (!ID_VOZ.test(vozId)) return res.status(400).json({ error: "Voz no válida" });
-
-  const base = String((req.body && req.body.texto) || "").trim() || "Hola {nombre}, esta es una muestra de mi voz. Así sonará el mensaje en tus llamadas.";
-  const texto = construirMensaje(base, "Carlos").slice(0, 300);
-
-  try {
-    const audio = await servicioVoces.generarAudio(vozId, texto);
-    res.type("audio/mpeg");
-    res.sendFile(audio.archivo);
-  } catch (err) {
-    responderErrorVoces(res, err);
-  }
-});
-
-app.get("/api/twilio/status", async (req, res) => {
-  res.json(await verificarCuentaTwilio());
-});
-
-function campanaDeLlamadasActiva() {
-  for (const c of campaigns.values()) {
-    if (c.tipo === "llamadas" && (c.estado === "en_progreso" || c.estado === "generando_audios")) return c;
-  }
-  return null;
-}
-
-app.post("/api/campaigns/:id/detener", async (req, res) => {
-  const campaign = campaigns.get(req.params.id);
-  if (!campaign) return res.status(404).json({ error: "Campaña no encontrada" });
-  if (campaign.estado === "completada" || campaign.estado === "detenida") return res.json({ ok: true, estado: campaign.estado });
-
-  campaign.detener = true;
-  campaign.manual = true;
-  campaign.estado = "detenida";
-  campaign.error = "Campaña detenida. Los contactos restantes no se llamaron.";
-
-  const cancelables = campaign.resultados.filter((r) => r.sid && (r.rangoLlamada || 0) < 3);
-  await Promise.all(cancelables.map(async (r) => {
-    try {
-      await client.calls(r.sid).update({ status: "canceled" });
-    } catch (err) {
-      console.error(`No se pudo cancelar ${r.sid}: ${err.message}`);
-    }
+  app.use("/audio", express.static(cfg.dirAudio, {
+    index: false,
+    setHeaders(res, ruta) {
+      const generado = ruta.includes(`${path.sep}generado${path.sep}`);
+      res.set("Cache-Control", generado ? "public, max-age=31536000, immutable" : "public, max-age=3600");
+      res.set("Access-Control-Allow-Origin", "*");
+    },
   }));
 
-  campaign.omitidos = Math.max(0, campaign.total - campaign.resultados.length);
-  console.log(`Campaña ${campaign.id} detenida manualmente`);
-  res.json({ ok: true, estado: campaign.estado, canceladas: cancelables.length });
-});
+  app.use(crearAutenticacion(cfg));
+  app.use(express.json({ limit: cfg.limites.maxBytesJson }));
 
-app.post("/api/calls/bulk", upload.single("csv"), async (req, res) => {
-  try {
-    const activa = campanaDeLlamadasActiva();
-    if (activa) return res.status(409).json({ error: "Ya hay una campaña de llamadas en curso. Espera a que termine o detenla antes de iniciar otra." });
+  const router = express.Router();
+  rutasCampanas.registrar(router, { g, config: cfg, eventos });
+  rutasSistema.registrar(router, { g, config: cfg, inicio });
+  app.use("/api", router);
+  app.use("/api", (req, res) => res.status(404).json({ error: `La ruta ${req.method} ${req.originalUrl} no existe.` }));
 
-    const { numeros, mensaje, audioUrl, concurrencia = 5, voces } = req.body;
-    const csvBuffer = req.file ? req.file.buffer : null;
-    const listaVoces = parsearVoces(voces);
-
-    if (!csvBuffer && !numeros) return res.status(400).json({ error: "Se requiere lista de números o CSV" });
-    if (!mensaje && !audioUrl) return res.status(400).json({ error: "Se requiere mensaje o URL de audio" });
-
-    if (voces && !listaVoces.length) return res.status(400).json({ error: "Selecciona al menos una voz válida de ElevenLabs" });
-
-    if (listaVoces.length) {
-      if (!mensaje) return res.status(400).json({ error: "Escribe el mensaje de voz para generar el audio" });
-      if (!servicioVoces.disponible()) return res.status(400).json({ error: "Falta ELEVENLABS_API_KEY en la configuración del servidor" });
-      if (/localhost|127\.0\.0\.1/.test(publicBaseUrl)) {
-        return res.status(400).json({ error: "PUBLIC_BASE_URL debe ser la URL pública del servidor para que Twilio pueda descargar los audios" });
-      }
-    }
-
-    const contactos = parsearContactos(numeros, csvBuffer);
-    if (!contactos.length) return res.status(400).json({ error: "No se encontraron números válidos" });
-
-    const campaignId = `calls_${Date.now()}`;
-    campaigns.set(campaignId, {
-      id: campaignId, tipo: "llamadas", total: contactos.length,
-      progreso: 0, estado: "en_progreso", resultados: [], inicio: new Date().toISOString()
-    });
-
-    res.json({ campaignId, total: contactos.length });
-    ejecutarCampana(contactos, mensaje || "", audioUrl || "", parseInt(concurrencia), campaignId, "llamadas", listaVoces).catch(console.error);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/whatsapp/bulk", upload.single("csv"), async (req, res) => {
-  try {
-    const { numeros, mensaje, concurrencia = 10 } = req.body;
-    const csvBuffer = req.file ? req.file.buffer : null;
-
-    if (!csvBuffer && !numeros) return res.status(400).json({ error: "Se requiere lista de números o CSV" });
-    if (!mensaje) return res.status(400).json({ error: "Se requiere mensaje" });
-
-    const contactos = parsearContactos(numeros, csvBuffer);
-    if (!contactos.length) return res.status(400).json({ error: "No se encontraron números válidos" });
-
-    const campaignId = `wa_${Date.now()}`;
-    campaigns.set(campaignId, {
-      id: campaignId, tipo: "whatsapp", total: contactos.length,
-      progreso: 0, estado: "en_progreso", resultados: [], inicio: new Date().toISOString()
-    });
-
-    res.json({ campaignId, total: contactos.length });
-    ejecutarCampana(contactos, mensaje, "", parseInt(concurrencia), campaignId, "whatsapp").catch(console.error);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/campaigns/:id", (req, res) => {
-  const campaign = campaigns.get(req.params.id);
-  if (!campaign) return res.status(404).json({ error: "Campaña no encontrada" });
-  res.json(campaign);
-});
-
-const RANGO_LLAMADA = {
-  "queued": 1,
-  "initiated": 1,
-  "ringing": 2,
-  "answered": 3,
-  "in-progress": 3,
-  "completed": 4,
-  "busy": 4,
-  "no-answer": 4,
-  "canceled": 4,
-  "failed": 4,
-};
-
-function aplicarEstadoLlamada(resultado, estadoTwilio, duracionTexto) {
-  const rango = RANGO_LLAMADA[estadoTwilio] || 1;
-  const rangoActual = resultado.rangoLlamada || 0;
-  if (rango < rangoActual) return false;
-
-  const duracion = duracionTexto !== undefined && duracionTexto !== null && duracionTexto !== "" ? parseInt(duracionTexto) || 0 : (resultado.duracion || 0);
-  const estadosMapa = {
-    "queued": "iniciada",
-    "initiated": "iniciada",
-    "ringing": "timbrando",
-    "answered": "contestada",
-    "in-progress": "contestada",
-    "completed": duracion > 0 ? "completada" : "no contestada",
-    "busy": "ocupado",
-    "no-answer": "no contestó",
-    "canceled": "cancelada",
-    "failed": "fallida",
-  };
-
-  resultado.rangoLlamada = rango;
-  resultado.estadoLlamada = estadoTwilio;
-  resultado.duracion = Math.max(duracion, resultado.duracion || 0);
-  resultado.ultimoUpdate = Date.now();
-  resultado.estado = estadosMapa[estadoTwilio] || estadoTwilio;
-
-  if (estadoTwilio === "in-progress" || estadoTwilio === "answered" || (estadoTwilio === "completed" && duracion > 0)) {
-    resultado.respondio = true;
-  } else if (resultado.respondio !== true && rango === 4) {
-    resultado.respondio = false;
-  }
-  return true;
+  app.use(express.static(cfg.dirPublic, {
+    index: "index.html",
+    setHeaders(res) { res.set("Cache-Control", "no-cache"); },
+  }));
+  app.use(manejarError);
+  return app;
 }
 
-app.post("/api/webhooks/call-status", express.urlencoded({ extended: false }), (req, res) => {
-  const { CallSid, CallStatus, Duration } = req.body;
-  console.log(`Webhook llamada: ${CallSid} → ${CallStatus} (${Duration || 0}s)`);
+function iniciar(opciones = {}) {
+  const inicio = Date.now();
+  const cfg = opciones.config || configBase;
+  fs.mkdirSync(cfg.dirAudioGenerado, { recursive: true });
 
-  const campaignId = sidToCampaign.get(CallSid);
-  if (campaignId) {
-    const campaign = campaigns.get(campaignId);
-    if (campaign) {
-      const resultado = campaign.resultados.find(r => r.sid === CallSid);
-      if (resultado) aplicarEstadoLlamada(resultado, CallStatus, Duration);
-    }
+  const almacen = new Almacen(cfg.dirDatos, opciones.almacen || {});
+  almacen.iniciar();
+  const eventos = new Eventos();
+  const client = opciones.client !== undefined ? opciones.client : crearClienteTwilio(cfg.twilio);
+  const voces = opciones.voces || crearServicioVoces({
+    apiKey: cfg.elevenlabs.apiKey, baseUrl: cfg.elevenlabs.baseUrl, modelId: cfg.elevenlabs.modelId, formato: cfg.elevenlabs.formato,
+    ajustesVoz: cfg.elevenlabs.ajustesVoz, directorio: cfg.dirAudioGenerado, publicBaseUrl: cfg.publicBaseUrl, concurrencia: cfg.elevenlabs.concurrencia,
+  });
+
+  const g = new Gestor({ config: cfg, client, voces, almacen, eventos });
+  g.motor = motor;
+  g.datos = new Datos();
+  const guardadas = almacen.cargarTodas();
+  guardadas.forEach((c) => g.registrar(c));
+
+  const app = crearApp({ g, cfg, eventos, inicio });
+  const servidor = app.listen(cfg.PORT, opciones.host || "0.0.0.0", () => {
+    const puerto = servidor.address().port;
+    console.log(`Llamadas Simultáneas v${cfg.version} escuchando en el puerto ${puerto}`);
+    console.log(`  Twilio: ${client ? "configurado" : "SIN CREDENCIALES VÁLIDAS"} · número: ${cfg.twilio.fromNumber || "(falta TWILIO_PHONE_NUMBER)"}`);
+    console.log(`  ElevenLabs: ${voces.disponible() ? "configurado" : "sin API key"} · dirección pública: ${cfg.publicBaseUrl}`);
+    console.log(`  Panel ${cfg.seguridad.activa ? "protegido con usuario y contraseña" : "SIN contraseña (define PANEL_USUARIO y PANEL_CLAVE)"} · ${guardadas.length} campañas guardadas`);
+    if (cfg.usaLocalhost) console.warn("  AVISO: PUBLIC_BASE_URL apunta a localhost; Twilio no podrá descargar audios ni enviar avisos.");
+  });
+  servidor.keepAliveTimeout = 65000;
+  servidor.headersTimeout = 66000;
+
+  g.iniciarTareas();
+  const tareas = [];
+  const cada = (ms, fn) => { const t = setInterval(fn, ms); if (t.unref) t.unref(); tareas.push(t); };
+  cada(60 * 60 * 1000, () => limpiar(g, cfg));
+  const arranque = setTimeout(() => limpiar(g, cfg), 30000);
+  if (arranque.unref) arranque.unref();
+  motor.recuperar(g).catch((err) => console.error(`Recuperación tras reinicio: ${err.stack || err.message}`));
+
+  let cerrando = false;
+  function cerrar(codigoSalida) {
+    if (cerrando) return Promise.resolve();
+    cerrando = true;
+    tareas.forEach((t) => clearInterval(t));
+    clearTimeout(arranque);
+    g.datos.cancelarTemporizadores();
+    g.apagar();
+    eventos.cerrarTodos();
+    return new Promise((resolver) => {
+      const salir = () => { resolver(); if (codigoSalida !== undefined) process.exit(codigoSalida); };
+      servidor.close(salir);
+      if (servidor.closeAllConnections) servidor.closeAllConnections();
+      const t = setTimeout(salir, 3000);
+      if (t.unref) t.unref();
+    });
   }
-
-  res.sendStatus(200);
-});
-
-let conciliando = false;
-
-async function conciliarLlamadas() {
-  if (conciliando) return;
-  conciliando = true;
-  try {
-    const limite = Date.now() - 45000;
-    const pendientes = [];
-    for (const campaign of campaigns.values()) {
-      if (campaign.tipo !== "llamadas") continue;
-      for (const r of campaign.resultados) {
-        if (r.sid && (r.rangoLlamada || 0) < 4 && (r.ultimoUpdate || r.ts) < limite) pendientes.push(r);
-        if (pendientes.length >= 60) break;
-      }
-      if (pendientes.length >= 60) break;
-    }
-
-    for (let i = 0; i < pendientes.length; i += 10) {
-      await Promise.all(pendientes.slice(i, i + 10).map(async (r) => {
-        try {
-          const llamada = await client.calls(r.sid).fetch();
-          aplicarEstadoLlamada(r, llamada.status, llamada.duration);
-          r.ultimoUpdate = Date.now();
-        } catch (err) {
-          r.ultimoUpdate = Date.now();
-        }
-      }));
-    }
-  } finally {
-    conciliando = false;
-  }
+  return { app, servidor, g, eventos, cerrar };
 }
 
-setInterval(() => { conciliarLlamadas().catch(console.error); }, 20000);
+if (require.main === module) {
+  const sistema = iniciar();
+  ["SIGTERM", "SIGINT"].forEach((senal) => process.on(senal, () => {
+    console.log(`${senal} recibido: guardando campañas y cerrando...`);
+    sistema.cerrar(0);
+  }));
+  process.on("uncaughtException", (err) => {
+    console.error(`Error no controlado: ${err.stack || err}`);
+    try { sistema.g.almacen.vaciarSync(); } catch (e) { }
+  });
+  process.on("unhandledRejection", (motivo) => {
+    console.error(`Promesa rechazada sin manejar: ${motivo && motivo.stack ? motivo.stack : motivo}`);
+  });
+}
 
-app.post("/api/webhooks/message-status", express.urlencoded({ extended: false }), (req, res) => {
-  console.log("Estado mensaje:", req.body.MessageSid, req.body.MessageStatus);
-  res.sendStatus(200);
-});
-
-app.get("/audio/:archivo", (req, res) => {
-  res.setHeader("ngrok-skip-browser-warning", "true");
-  const filePath = path.join(__dirname, "public", "audio", path.basename(req.params.archivo));
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.status(404).json({ error: "Archivo no encontrado" });
-  }
-});
-
-app.get("/api/config", (req, res) => {
-  res.json({ defaultCountryCode, fromNumber, whatsappFrom, publicBaseUrl, hasElevenLabs: !!elevenLabsKey });
-});
-
-app.listen(PORT, () => {
-  console.log(`BroadcastPro corriendo en http://localhost:${PORT}`);
-  console.log(`Numero saliente: ${fromNumber}`);
-  if (!elevenLabsKey) console.warn("ELEVENLABS_API_KEY no está configurada: no se podrán generar audios.");
-  verificarCuentaTwilio();
-});
+module.exports = { iniciar, crearApp, crearClienteTwilio, limpiar };
